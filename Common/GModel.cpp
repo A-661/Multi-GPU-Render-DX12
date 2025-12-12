@@ -24,7 +24,7 @@ std::wstring GModel::GetName() const
     return model->GetName();
 }
 
-GModel::GModel(const std::shared_ptr<NativeModel>& model, std::shared_ptr<GCommandList> uploadCmdList): model(model)
+GModel::GModel(const std::shared_ptr<NativeModel>& model, std::shared_ptr<GCommandList> uploadCmdList) : model(model)
 {
     if (meshesMaterials.size() < model->GetMeshesCount())
     {
@@ -43,7 +43,7 @@ void GModel::SetMeshMaterial(const UINT index, const std::shared_ptr<Material>& 
     meshesMaterials[index] = material;
 }
 
-GModel::GModel(const GModel& copy): model(copy.model)
+GModel::GModel(const GModel& copy) : model(copy.model)
 {
     gmeshes.resize(copy.gmeshes.size());
 

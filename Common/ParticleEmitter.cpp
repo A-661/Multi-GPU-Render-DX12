@@ -288,7 +288,7 @@ void ParticleEmitter::Dispatch(const std::shared_ptr<GCommandList>& cmdList)
     cmdList->FlushResourceBarriers();
 
     cmdList->SetDescriptorsHeap(&particlesComputeDescriptors);
-    
+
     if (emitterData.ParticlesTotalCount > emitterData.ParticlesAliveCount)
     {
         if (emitterData.ParticlesAliveCount + emitterData.ParticleInjectCount <= emitterData.ParticlesTotalCount)

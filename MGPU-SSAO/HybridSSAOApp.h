@@ -33,6 +33,7 @@ public:
     void SwitchDevice();
     void ChangeAOMethod();
     void ResetCamera() const;
+
 protected:
     void Update(const GameTimer& gt) override;
     void PopulateShadowMapCommands(const std::shared_ptr<GCommandList>& cmdList);;
@@ -48,7 +49,7 @@ protected:
                                      const GraphicPSO& pso) const;
     void PopulateDebugCommands(const std::shared_ptr<GCommandList>& cmdList);
     void Draw(const GameTimer& gt) override;
-   
+
     void InitDevices();
     void InitFrameResource();
     void InitRootSignature();
@@ -72,7 +73,7 @@ protected:
     void Flush() override;
     LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) override;
 
-    
+
     FileQueueWriter debugLogger;
     BenchmarkService benchmark;
     std::shared_ptr<GDevice> primeDevice;

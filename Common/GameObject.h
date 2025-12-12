@@ -34,14 +34,14 @@ public:
     std::shared_ptr<Renderer>& GetRenderer();
 
     template <class T = Component>
-    inline void AddComponent(std::shared_ptr<T> component)
+    void AddComponent(std::shared_ptr<T> component)
     {
         component->gameObject = this;
         components.push_back(component);
     }
 
     template <class T = Component>
-    inline std::shared_ptr<T> GetComponent()
+    std::shared_ptr<T> GetComponent()
     {
         for (auto&& component : components)
         {

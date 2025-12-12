@@ -16,7 +16,7 @@ GameObject::GameObject(std::string name)
 }
 
 GameObject::
-GameObject(std::string name, Vector3 position, Vector3 scale, Quaternion rotate): name(
+GameObject(std::string name, Vector3 position, Vector3 scale, Quaternion rotate) : name(
     std::move(name))
 {
     transform = std::make_shared<Transform>(position, rotate, scale);

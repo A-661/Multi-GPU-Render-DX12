@@ -1740,13 +1740,13 @@ struct CD3DX12_CPU_DESCRIPTOR_HANDLE : D3D12_CPU_DESCRIPTOR_HANDLE
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE& Offset(const INT offsetInDescriptors, const UINT descriptorIncrementSize) noexcept
     {
-        ptr = static_cast<SIZE_T>(INT64(ptr) + INT64(offsetInDescriptors) * INT64(descriptorIncrementSize));
+        ptr = static_cast<SIZE_T>(static_cast<INT64>(ptr) + static_cast<INT64>(offsetInDescriptors) * static_cast<INT64>(descriptorIncrementSize));
         return *this;
     }
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE& Offset(const INT offsetScaledByIncrementSize) noexcept
     {
-        ptr = static_cast<SIZE_T>(INT64(ptr) + INT64(offsetScaledByIncrementSize));
+        ptr = static_cast<SIZE_T>(static_cast<INT64>(ptr) + static_cast<INT64>(offsetScaledByIncrementSize));
         return *this;
     }
 
@@ -1780,13 +1780,13 @@ struct CD3DX12_CPU_DESCRIPTOR_HANDLE : D3D12_CPU_DESCRIPTOR_HANDLE
     static void InitOffsetted(_Out_ D3D12_CPU_DESCRIPTOR_HANDLE& handle, _In_ const D3D12_CPU_DESCRIPTOR_HANDLE& base,
                               const INT offsetScaledByIncrementSize) noexcept
     {
-        handle.ptr = static_cast<SIZE_T>(INT64(base.ptr) + INT64(offsetScaledByIncrementSize));
+        handle.ptr = static_cast<SIZE_T>(static_cast<INT64>(base.ptr) + static_cast<INT64>(offsetScaledByIncrementSize));
     }
 
     static void InitOffsetted(_Out_ D3D12_CPU_DESCRIPTOR_HANDLE& handle, _In_ const D3D12_CPU_DESCRIPTOR_HANDLE& base,
                               const INT offsetInDescriptors, const UINT descriptorIncrementSize) noexcept
     {
-        handle.ptr = static_cast<SIZE_T>(INT64(base.ptr) + INT64(offsetInDescriptors) * INT64(descriptorIncrementSize));
+        handle.ptr = static_cast<SIZE_T>(static_cast<INT64>(base.ptr) + static_cast<INT64>(offsetInDescriptors) * static_cast<INT64>(descriptorIncrementSize));
     }
 };
 
@@ -1816,13 +1816,13 @@ struct CD3DX12_GPU_DESCRIPTOR_HANDLE : D3D12_GPU_DESCRIPTOR_HANDLE
 
     CD3DX12_GPU_DESCRIPTOR_HANDLE& Offset(const INT offsetInDescriptors, const UINT descriptorIncrementSize) noexcept
     {
-        ptr = static_cast<UINT64>(INT64(ptr) + INT64(offsetInDescriptors) * INT64(descriptorIncrementSize));
+        ptr = static_cast<UINT64>(static_cast<INT64>(ptr) + static_cast<INT64>(offsetInDescriptors) * static_cast<INT64>(descriptorIncrementSize));
         return *this;
     }
 
     CD3DX12_GPU_DESCRIPTOR_HANDLE& Offset(const INT offsetScaledByIncrementSize) noexcept
     {
-        ptr = static_cast<UINT64>(INT64(ptr) + INT64(offsetScaledByIncrementSize));
+        ptr = static_cast<UINT64>(static_cast<INT64>(ptr) + static_cast<INT64>(offsetScaledByIncrementSize));
         return *this;
     }
 
@@ -1856,13 +1856,13 @@ struct CD3DX12_GPU_DESCRIPTOR_HANDLE : D3D12_GPU_DESCRIPTOR_HANDLE
     static void InitOffsetted(_Out_ D3D12_GPU_DESCRIPTOR_HANDLE& handle, _In_ const D3D12_GPU_DESCRIPTOR_HANDLE& base,
                               const INT offsetScaledByIncrementSize) noexcept
     {
-        handle.ptr = static_cast<UINT64>(INT64(base.ptr) + INT64(offsetScaledByIncrementSize));
+        handle.ptr = static_cast<UINT64>(static_cast<INT64>(base.ptr) + static_cast<INT64>(offsetScaledByIncrementSize));
     }
 
     static void InitOffsetted(_Out_ D3D12_GPU_DESCRIPTOR_HANDLE& handle, _In_ const D3D12_GPU_DESCRIPTOR_HANDLE& base,
                               const INT offsetInDescriptors, const UINT descriptorIncrementSize) noexcept
     {
-        handle.ptr = static_cast<UINT64>(INT64(base.ptr) + INT64(offsetInDescriptors) * INT64(descriptorIncrementSize));
+        handle.ptr = static_cast<UINT64>(static_cast<INT64>(base.ptr) + static_cast<INT64>(offsetInDescriptors) * static_cast<INT64>(descriptorIncrementSize));
     }
 };
 
@@ -2460,20 +2460,20 @@ inline HRESULT D3DX12SerializeVersionedRootSignature(
                         {
                         case D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS:
                             pParameters_1_0[n].Constants.Num32BitValues = desc_1_1.pParameters[n].Constants.
-                                Num32BitValues;
+                                                                                                  Num32BitValues;
                             pParameters_1_0[n].Constants.RegisterSpace = desc_1_1.pParameters[n].Constants.
-                                RegisterSpace;
+                                                                                                 RegisterSpace;
                             pParameters_1_0[n].Constants.ShaderRegister = desc_1_1.pParameters[n].Constants.
-                                ShaderRegister;
+                                                                                                  ShaderRegister;
                             break;
 
                         case D3D12_ROOT_PARAMETER_TYPE_CBV:
                         case D3D12_ROOT_PARAMETER_TYPE_SRV:
                         case D3D12_ROOT_PARAMETER_TYPE_UAV:
                             pParameters_1_0[n].Descriptor.RegisterSpace = desc_1_1.pParameters[n].Descriptor.
-                                RegisterSpace;
+                                                                                                  RegisterSpace;
                             pParameters_1_0[n].Descriptor.ShaderRegister = desc_1_1.pParameters[n].Descriptor.
-                                ShaderRegister;
+                                                                                                   ShaderRegister;
                             break;
 
                         case D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE:
@@ -2532,7 +2532,7 @@ inline HRESULT D3DX12SerializeVersionedRootSignature(
                         {
                             HeapFree(GetProcessHeap(), 0,
                                      const_cast<D3D12_DESCRIPTOR_RANGE*>(pParameters_1_0[n].DescriptorTable.
-                                         pDescriptorRanges));
+                                                                                            pDescriptorRanges));
                         }
                     }
                     HeapFree(GetProcessHeap(), 0, pParameters);

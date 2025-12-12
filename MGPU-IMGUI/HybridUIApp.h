@@ -85,7 +85,6 @@ protected:
 
     bool IsStop = false;
 
-   
 
     std::shared_ptr<GRootSignature> ssaoPrimeRootSignature;
     GTexture secondDeviceUITexture;

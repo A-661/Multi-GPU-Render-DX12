@@ -46,5 +46,5 @@ public:
     void OnResize(UINT newWidth, UINT newHeight);
 
     SSAA(const std::shared_ptr<GDevice>& device, UINT multiplier, UINT width, UINT height,
-        DXGI_FORMAT depthStencilFormat = DXGI_FORMAT_D32_FLOAT);
+         DXGI_FORMAT depthStencilFormat = DXGI_FORMAT_D32_FLOAT);
 };

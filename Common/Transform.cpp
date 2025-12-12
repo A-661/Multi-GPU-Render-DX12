@@ -4,8 +4,8 @@
 
 UINT Transform::gConstantUploadBufferIndex = 0;
 
-Transform::Transform(Vector3 pos, Quaternion rot, Vector3 scale): Component(), localPosition(pos),
-                                                                  localRotate(rot), localScale(scale)
+Transform::Transform(Vector3 pos, Quaternion rot, Vector3 scale) : Component(), localPosition(pos),
+                                                                   localRotate(rot), localScale(scale)
 {
     bufferIndex = gConstantUploadBufferIndex++;
 }

@@ -18,7 +18,7 @@ FrameResource::FrameResource(std::shared_ptr<GDevice> primeDevices, std::shared_
 
     SecondHBAOConstantUploadBuffer = (std::make_shared<ConstantUploadBuffer<HBAOConstants>>(
         secondDevice, 1, secondDevice->GetName() + L" HBAO Path Data Buffer"));
-    
+
     MaterialBuffer = std::make_shared<StructuredUploadBuffer<MaterialConstants>>(
         primeDevices, materialCount, primeDevices->GetName() + L" Material Data Buffer ");
 

@@ -55,7 +55,7 @@ void UILayer::Invalidate()
     ImGui_ImplDX12_InvalidateDeviceObjects();
 }
 
-UILayer::UILayer(const std::shared_ptr<GDevice>& device, const HWND hwnd): hwnd(hwnd), device((device))
+UILayer::UILayer(const std::shared_ptr<GDevice>& device, const HWND hwnd) : hwnd(hwnd), device((device))
 {
     Initialize();
     CreateDeviceObject();
@@ -106,9 +106,13 @@ void UILayer::ShowMetrics()
     {
         if (ImGui::BeginMenu("File"))
         {
-            if (ImGui::MenuItem("Open..", "Ctrl+O")) { }
-            if (ImGui::MenuItem("Save", "Ctrl+S"))   { }
-            if (ImGui::MenuItem("Close", "Ctrl+W"))  { my_tool_active = false; }
+            if (ImGui::MenuItem("Open..", "Ctrl+O"))
+            {
+            }
+            if (ImGui::MenuItem("Save", "Ctrl+S"))
+            {
+            }
+            if (ImGui::MenuItem("Close", "Ctrl+W")) { my_tool_active = false; }
             ImGui::EndMenu();
         }
         ImGui::EndMenuBar();
@@ -116,7 +120,7 @@ void UILayer::ShowMetrics()
 
     float samples[100];
 
-    
+
     for (int n = 0; n < 100; n++)
         samples[n] = sinf(n * 0.2f + ImGui::GetTime() * 1.5f);
     ImGui::PlotLines("Samples", samples, 100);

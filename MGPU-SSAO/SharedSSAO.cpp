@@ -165,8 +165,7 @@ void SSAOResources::RebuildDescriptors() const
     dsvDesc.Texture2D.MipSlice = 0;
     depthMap.CreateDepthStencilView(&dsvDesc, &depthMapDSV);
 
-    
-    
+
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -405,10 +404,10 @@ void SharedSSAO::Initialize(const std::shared_ptr<GDevice>& primeDevice, const s
 {
     primeResources.Initialize(primeDevice, layout);
     primeResources.OnResize(width, height);
-    
+
     secondResources.Initialize(secondDevice, layout);
     secondResources.OnResize(width, height);
-    
+
     crossResources.Initialize(primeResources, primeDevice, secondDevice);
     crossResources.OnResize(width, height);
     OnResize(width, height);

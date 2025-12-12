@@ -17,7 +17,7 @@ using namespace Microsoft::WRL;
 SSAO::SSAO(
     const std::shared_ptr<GDevice>& device,
     const std::shared_ptr<GCommandList>& cmdList,
-    const UINT width, const UINT height): device(device)
+    const UINT width, const UINT height) : device(device)
 
 {
     normalMapSrvMemory = device->AllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
@@ -203,7 +203,7 @@ void SSAO::RebuildDescriptors() const
     srvDesc.Texture2D.MipLevels = 1;
     normalMap.CreateShaderResourceView(&srvDesc, &normalMapSrvMemory);
 
-    srvDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+    srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
     depthMap.CreateShaderResourceView(&srvDesc, &depthMapSrvMemory);
 
     srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -273,7 +273,7 @@ void SSAO::ComputeSsao(
     cmdList->SetDescriptorsHeap(&normalMapSrvMemory);
     cmdList->SetDescriptorsHeap(&randomVectorSrvMemory);
     cmdList->SetDescriptorsHeap(&ambientMapMapSrvMemory);
-    
+
     cmdList->SetRootConstantBufferView(0, *currFrame.get());
     cmdList->SetRoot32BitConstant(1, 0, 0);
 

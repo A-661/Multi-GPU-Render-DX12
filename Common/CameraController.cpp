@@ -74,4 +74,3 @@ void CameraController::Update()
         tr->AdjustPosition(tr->GetDownVector() * cameraSpeed * dt);
     }
 }
-

@@ -25,7 +25,7 @@ private:
     void Enter() override;
 
     void Exit() override;
-    
+
     bool IsCompleted() override;
     uint32_t waitTime;
     uint32_t currentStatsCalculation = 0;

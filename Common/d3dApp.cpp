@@ -398,8 +398,8 @@ namespace Common
 
                 Flush();
 
-            // If a window is being destroyed, remove it from the 
-            // window maps.
+                // If a window is being destroyed, remove it from the 
+                // window maps.
                 RemoveWindow(hwnd);
 
                 if (gs_Windows.empty())

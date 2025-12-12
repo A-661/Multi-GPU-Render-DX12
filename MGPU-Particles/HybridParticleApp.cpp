@@ -17,7 +17,7 @@
 #include "Transform.h"
 #include "Window.h"
 
-HybridParticleApp::HybridParticleApp(const HINSTANCE hInstance): D3DApp(hInstance)
+HybridParticleApp::HybridParticleApp(const HINSTANCE hInstance) : D3DApp(hInstance)
 {
     mSceneBounds.Center = Vector3(0.0f, 0.0f, 0.0f);
     mSceneBounds.Radius = 200;

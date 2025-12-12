@@ -55,7 +55,7 @@ void UILayer::Invalidate()
     ImGui_ImplDX12_InvalidateDeviceObjects();
 }
 
-UILayer::UILayer(const std::shared_ptr<GDevice>& device, const HWND hwnd): hwnd(hwnd), device((device))
+UILayer::UILayer(const std::shared_ptr<GDevice>& device, const HWND hwnd) : hwnd(hwnd), device((device))
 {
     Initialize();
     CreateDeviceObject();

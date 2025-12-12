@@ -113,7 +113,7 @@ namespace PEPEngine::Graphics
         auto& device = cmdList->GetDevice();
 
         auto mipMapsMemory = device->AllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-                                                                       2 * requiredHeapSize);
+                                                         2 * requiredHeapSize);
 
         auto& PSO = GetPSO(device);
         cmdList->SetRootSignature(PSO.GetRootSignature());

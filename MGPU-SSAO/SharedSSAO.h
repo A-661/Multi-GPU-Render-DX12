@@ -69,9 +69,9 @@ public:
     const GDescriptor* GetDepthMapDSV() const { return &depthMapDSV; }
     const GDescriptor* GetRandomVectorSRV() const { return &randomVectorMapSRV; }
 
-    const GRootSignature& GetRootSignature() const  { return *aoRootSignature;}
-    const GraphicPSO& GetSSAOPSO() const { return *ssaoPSO;}
-    const GraphicPSO& GetBlurPSO() const { return *blurPSO;}
+    const GRootSignature& GetRootSignature() const { return *aoRootSignature; }
+    const GraphicPSO& GetSSAOPSO() const { return *ssaoPSO; }
+    const GraphicPSO& GetBlurPSO() const { return *blurPSO; }
 
     void virtual InitializeRS();
     void virtual Initialize(const std::shared_ptr<GDevice>& Device, const D3D12_INPUT_LAYOUT_DESC& layout);
@@ -127,7 +127,7 @@ public:
     const SSAOResources& GetPrimeResources() { return primeResources; }
     const SSAOResources& GetSecondResource() { return secondResources; }
     const SSAOCrossResources& GetCrossResources() { return crossResources; }
-    
+
     void Initialize(const std::shared_ptr<GDevice>& primeDevice, const std::shared_ptr<GDevice>& secondDevice,
                     const D3D12_INPUT_LAYOUT_DESC& layout, UINT width, UINT height);
 

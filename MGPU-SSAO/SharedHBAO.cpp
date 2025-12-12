@@ -10,13 +10,13 @@ void HBAOResources::RebuildDescriptors() const
     uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
     uavDesc.Texture2D.PlaneSlice = 0;
     uavDesc.Texture2D.MipSlice = 0;
-    GetAmbientMap().CreateUnorderedAccessView(&uavDesc, &ambientMapUAV);    
+    GetAmbientMap().CreateUnorderedAccessView(&uavDesc, &ambientMapUAV);
 }
 
 void HBAOResources::InitializeRS()
 {
     aoRootSignature = std::make_shared<GRootSignature>();
-    
+
     CD3DX12_DESCRIPTOR_RANGE texTable0;
     texTable0.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0);
 
@@ -80,14 +80,13 @@ void HBAOResources::Initialize(const std::shared_ptr<GDevice>& Device, const D3D
     SSAOResources::Initialize(Device, layout);
 
     ambientMapUAV = ambientMapSRV.Offset(1);
-    
 }
 
 void HBAOResources::BuildPSO(const D3D12_INPUT_LAYOUT_DESC& layout)
 {
     auto shader = std::make_unique<GShader>(L"Shaders\\HBAO.hlsl", ComputeShader, nullptr,
-                                                       "CSMain",
-                                                       "cs_5_1");
+                                            "CSMain",
+                                            "cs_5_1");
     shader->LoadAndCompile();
 
     pso.SetShader(shader.get());
@@ -121,7 +120,7 @@ void SharedHBAO::OnResize(UINT newWidth, UINT newHeight)
     crossResources.OnResize(newWidth, newHeight);
 }
 
-static UINT IntDivRoundUp	( UINT a, UINT b ) { return ( a + b - 1 ) / b; }
+static UINT IntDivRoundUp(UINT a, UINT b) { return (a + b - 1) / b; }
 
 void SharedHBAO::Compute(const std::shared_ptr<GCommandList>& cmdList, const std::shared_ptr<ConstantUploadBuffer<HBAOConstants>>& Constants, const HBAOResources& Resources) const
 {
@@ -136,16 +135,16 @@ void SharedHBAO::Compute(const std::shared_ptr<GCommandList>& cmdList, const std
     cmdList->TransitionBarrier(Resources.GetRandomVectorMap(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     cmdList->TransitionBarrier(Resources.GetAmbientMap(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     cmdList->FlushResourceBarriers();
-    
+
     cmdList->SetComputeRootSignature(Resources.GetRootSignature());
     cmdList->SetPipelineState(Resources.GetPso());
     cmdList->SetDescriptorsHeap(Resources.GetAmbientMapSRV());
 
     cmdList->SetComputeRootConstantBufferView(0, *Constants.get());
-    cmdList->SetComputeRootDescriptorTable(1,Resources.GetDepthMapSRV());
-    cmdList->SetComputeRootDescriptorTable(2,Resources.GetRandomVectorSRV());
+    cmdList->SetComputeRootDescriptorTable(1, Resources.GetDepthMapSRV());
+    cmdList->SetComputeRootDescriptorTable(2, Resources.GetRandomVectorSRV());
     cmdList->SetComputeRootDescriptorTable(3, Resources.GetAmbientMapUAV());
-    
+
     auto tgx = IntDivRoundUp(RenderTargetWidth, 32);
     auto tgy = IntDivRoundUp(RenderTargetHeight, 32);
     cmdList->Dispatch(tgx, tgy, 1);
@@ -154,5 +153,3 @@ void SharedHBAO::Compute(const std::shared_ptr<GCommandList>& cmdList, const std
     cmdList->FlushResourceBarriers();
     cmdList->EndMark();
 }
-
-

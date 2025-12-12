@@ -5,7 +5,7 @@
 #include "GCrossAdapterResource.h"
 #include "GDeviceFactory.h"
 
-SampleApp::SampleApp(const HINSTANCE hInstance): D3DApp(hInstance)
+SampleApp::SampleApp(const HINSTANCE hInstance) : D3DApp(hInstance)
 {
 }
 
@@ -40,8 +40,6 @@ bool SampleApp::Initialize()
     {
         frameResources.emplace_back(
             std::make_unique<FrameResource>(primeDevice, 1, 1, 1));
-
-       
     }
 
     primeDevice->SharedFence(primeFence, secondDevice, sharedFence, sharedFenceValue);
@@ -135,11 +133,11 @@ void SampleApp::Draw(const GameTimer& gt)
 }
 
 void SampleApp::OnResize()
-{    
+{
     primeDevice->Flush();
     secondDevice->Flush();
 
-    
+
     D3DApp::OnResize();
 
     D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};

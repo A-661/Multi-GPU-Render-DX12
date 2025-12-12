@@ -71,14 +71,14 @@ void PEPEngine::Graphics::GRenderTexture::ChangeTexture(const std::shared_ptr<GT
     CreateRTV();
 }
 
-PEPEngine::Graphics::GRenderTexture::GRenderTexture(const std::shared_ptr<GTexture>& texture): renderTexture(texture),
-    offset(0)
+PEPEngine::Graphics::GRenderTexture::GRenderTexture(const std::shared_ptr<GTexture>& texture) : renderTexture(texture),
+                                                                                                offset(0)
 {
     rtv = std::move(&renderTexture->GetDevice()->AllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1));
 }
 
 PEPEngine::Graphics::GRenderTexture::GRenderTexture(const std::shared_ptr<GTexture>& texture, GDescriptor* rtv,
-                                                    const UINT offset): renderTexture(texture), rtv(rtv), offset(offset)
+                                                    const UINT offset) : renderTexture(texture), rtv(rtv), offset(offset)
 {
     CreateRTV();
 }

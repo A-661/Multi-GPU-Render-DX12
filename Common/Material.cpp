@@ -44,7 +44,7 @@ void Material::SetDiffuseTexture(const std::shared_ptr<GTexture>& texture, const
     DiffuseMapIndex = index;
 }
 
-Material::Material(std::wstring name, RenderMode pso): Name(std::move(name)), type(pso)
+Material::Material(std::wstring name, RenderMode pso) : Name(std::move(name)), type(pso)
 {
     materialIndex = materialIndexGlobal++;
 }

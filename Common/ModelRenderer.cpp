@@ -40,7 +40,7 @@ void ModelRenderer::Update()
 }
 
 ModelRenderer::ModelRenderer(const std::shared_ptr<GDevice>& device,
-                             const std::shared_ptr<GModel>& model): Renderer(), device(device), model(model)
+                             const std::shared_ptr<GModel>& model) : Renderer(), device(device), model(model)
 {
     SetModel(model);
 }

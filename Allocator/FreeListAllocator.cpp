@@ -172,7 +172,7 @@ namespace PEPEngine::Allocator
 
 #ifdef _DEBUG
         std::cout << "F" << "\t@ptr " << ptr << "\tH@ " << freeNode << "\tS " << freeNode->data.
-            blockSize << "\tM " << used << std::endl;
+                                                                                           blockSize << "\tM " << used << std::endl;
 #endif
     }
 

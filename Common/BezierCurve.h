@@ -4,7 +4,8 @@
 #include <vector>
 
 
-class BezierCurve {
+class BezierCurve
+{
 public:
     BezierCurve(const std::vector<DirectX::SimpleMath::Vector3>& controlPoints);
 
@@ -15,4 +16,3 @@ public:
 private:
     std::vector<DirectX::SimpleMath::Vector3> m_controlPoints;
 };
-

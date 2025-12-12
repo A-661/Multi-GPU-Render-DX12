@@ -15,7 +15,7 @@
 using namespace PEPEngine;
 using namespace Utils;
 
-SFRApp::SFRApp(const HINSTANCE hInstance): D3DApp(hInstance)
+SFRApp::SFRApp(const HINSTANCE hInstance) : D3DApp(hInstance)
 {
     mSceneBounds.Center = Vector3(0.0f, 0.0f, 0.0f);
     mSceneBounds.Radius = 175;
@@ -79,7 +79,7 @@ void SFRApp::InitFrameResource()
     {
         frameResources.push_back(std::make_unique<SplitFrameResource>(devices.data(), devices.size(), 2,
                                                                       assets[GraphicAdapterPrimary].GetMaterials().
-                                                                      size()));
+                                                                                                    size()));
 
         auto backBufferDesc = MainWindow->GetBackBuffer(i).GetD3D12ResourceDesc();
         backBufferDesc.Width = backBufferDesc.Width / 2;
@@ -584,13 +584,13 @@ std::shared_ptr<Renderer> SFRApp::CreateRenderer(const UINT deviceIndex, std::sh
 }
 
 void SFRApp::AddMultiDeviceOpaqueRenderComponent(GameObject* object, const std::wstring& modelName,
-                                                        RenderMode psoType)
+                                                 RenderMode psoType)
 {
     for (int i = 0; i < GraphicAdapterCount; ++i)
     {
         auto renderer = CreateRenderer(i, models[i][modelName]);
         object->AddComponent(renderer);
-        typedRenderer[i][(int)RenderMode::OpaqueAlphaDrop].push_back(renderer);
+        typedRenderer[i][static_cast<int>(RenderMode::OpaqueAlphaDrop)].push_back(renderer);
     }
 }
 
@@ -606,7 +606,7 @@ void SFRApp::CreateGO()
                                                  &srvTexturesMemory[i], assets[i].GetTextureIndex(L"skyTex"));
 
         skySphere->AddComponent(renderer);
-        typedRenderer[i][(int)RenderMode::SkyBox].push_back((renderer));
+        typedRenderer[i][static_cast<int>(RenderMode::SkyBox)].push_back((renderer));
     }
     gameObjects.push_back(std::move(skySphere));
 
@@ -616,8 +616,8 @@ void SFRApp::CreateGO()
         auto renderer = std::make_shared<ModelRenderer>(devices[i], models[i][L"quad"]);
         renderer->SetModel(models[i][L"quad"]);
         quadRitem->AddComponent(renderer);
-        typedRenderer[i][(int)RenderMode::Debug].push_back(renderer);
-        typedRenderer[i][(int)RenderMode::Quad].push_back(renderer);
+        typedRenderer[i][static_cast<int>(RenderMode::Debug)].push_back(renderer);
+        typedRenderer[i][static_cast<int>(RenderMode::Quad)].push_back(renderer);
     }
     gameObjects.push_back(std::move(quadRitem));
 
@@ -1272,16 +1272,16 @@ void SFRApp::PopulateForwardPathCommands(const GraphicsAdapter adapterIndex, con
 }
 
 void SFRApp::PopulateDrawCommands(const GraphicsAdapter adapterIndex, std::shared_ptr<GCommandList> cmdList,
-                                         RenderMode type)
+                                  RenderMode type)
 {
-    for (auto&& renderer : typedRenderer[adapterIndex][(int)type])
+    for (auto&& renderer : typedRenderer[adapterIndex][static_cast<int>(type)])
     {
         renderer->Draw(cmdList);
     }
 }
 
 void SFRApp::PopulateDrawQuadCommand(const GraphicsAdapter adapterIndex, const std::shared_ptr<GCommandList>& cmdList,
-                                            GTexture& renderTarget, GDescriptor* rtvMemory, const UINT offsetRTV)
+                                     GTexture& renderTarget, GDescriptor* rtvMemory, const UINT offsetRTV)
 {
     cmdList->SetViewports(&fullViewport, 1);
     cmdList->SetScissorRects(&adapterRects[adapterIndex], 1);
@@ -1303,7 +1303,7 @@ void SFRApp::PopulateDrawQuadCommand(const GraphicsAdapter adapterIndex, const s
 }
 
 void SFRApp::PopulateCopyResource(const std::shared_ptr<GCommandList>& cmdList, const GResource& srcResource,
-                                         const GResource& dstResource)
+                                  const GResource& dstResource)
 {
     cmdList->CopyResource(dstResource, srcResource);
     cmdList->TransitionBarrier(dstResource,
@@ -1313,7 +1313,7 @@ void SFRApp::PopulateCopyResource(const std::shared_ptr<GCommandList>& cmdList, 
 }
 
 void SFRApp::PopulateCopyResourceRegion(const std::shared_ptr<GCommandList>& cmdList, const GResource& srcResource,
-                                               const GResource& dstResource)
+                                        const GResource& dstResource)
 {
     cmdList->CopyTextureRegion(dstResource, 0, 0, 0, srcResource, &copyRegionBox);
     cmdList->TransitionBarrier(dstResource,

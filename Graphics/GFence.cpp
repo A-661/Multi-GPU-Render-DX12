@@ -5,7 +5,7 @@
 namespace PEPEngine::Graphics
 {
     GFence::GFence(const std::shared_ptr<GDevice>& device, const D3D12_FENCE_FLAGS flags) : FenceValue(0),
-        device(device)
+                                                                                            device(device)
     {
         device->GetDXDevice()->CreateFence(0, flags, IID_PPV_ARGS(&fence));
     }

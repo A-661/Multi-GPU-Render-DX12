@@ -9,7 +9,7 @@ class Rotater :
     public Component
 {
 public:
-    Rotater(const float speed = 1): speed(speed)
+    Rotater(const float speed = 1) : speed(speed)
     {
     }
 

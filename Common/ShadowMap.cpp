@@ -5,7 +5,7 @@
 #include "GResourceStateTracker.h"
 
 ShadowMap::ShadowMap(std::shared_ptr<GDevice> device, UINT width, UINT height) : device(device), width(width),
-    height(height)
+                                                                                 height(height)
 {
     viewport = {0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height), 0.0f, 1.0f};
     scissorRect = {0, 0, static_cast<int>(width), static_cast<int>(height)};
@@ -17,8 +17,8 @@ ShadowMap::ShadowMap(std::shared_ptr<GDevice> device, UINT width, UINT height) :
     BuildViews();
 }
 
-ShadowMap::ShadowMap(std::shared_ptr<GDevice> device, UINT width, UINT height, GTexture& texture): device(device),
-    width(width), height(height)
+ShadowMap::ShadowMap(std::shared_ptr<GDevice> device, UINT width, UINT height, GTexture& texture) : device(device),
+                                                                                                    width(width), height(height)
 {
     viewport = {0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height), 0.0f, 1.0f};
     scissorRect = {0, 0, static_cast<int>(width), static_cast<int>(height)};

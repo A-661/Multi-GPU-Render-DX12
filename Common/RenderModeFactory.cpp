@@ -118,12 +118,12 @@ void RenderModeFactory::LoadDefaultPSO(std::shared_ptr<GDevice> device, std::sha
     transparencyBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
     transperentPSO->SetRenderTargetBlendState(0, transparencyBlendDesc);
 
-    auto debugPso = std::make_shared<GraphicPSO>( RenderMode::Debug);
+    auto debugPso = std::make_shared<GraphicPSO>(RenderMode::Debug);
     debugPso->SetPsoDesc(basePsoDesc);
     debugPso->SetShader(shaders["quadVS"].get());
     debugPso->SetShader(shaders["quadPS"].get());
 
-    auto quadPso = std::make_shared<GraphicPSO>( RenderMode::Quad);
+    auto quadPso = std::make_shared<GraphicPSO>(RenderMode::Quad);
     quadPso->SetPsoDesc(basePsoDesc);
     quadPso->SetShader(shaders["quadVS"].get());
     quadPso->SetShader(shaders["quadPS"].get());
@@ -136,7 +136,7 @@ void RenderModeFactory::LoadDefaultPSO(std::shared_ptr<GDevice> device, std::sha
     quadPso->SetDepthStencilState(depthStencilDesc);
 
 
-    auto noisePSO = std::make_shared<GraphicPSO>( RenderMode::Debug);
+    auto noisePSO = std::make_shared<GraphicPSO>(RenderMode::Debug);
     noisePSO->SetPsoDesc(basePsoDesc);
     noisePSO->SetShader(shaders["noiseVS"].get());
     noisePSO->SetShader(shaders["noisePS"].get());
@@ -149,7 +149,7 @@ void RenderModeFactory::LoadDefaultPSO(std::shared_ptr<GDevice> device, std::sha
     noisePSO->SetDepthStencilState(depthStencilDesc);
 
 
-    auto uiPSO = std::make_shared<GraphicPSO>( RenderMode::UI);
+    auto uiPSO = std::make_shared<GraphicPSO>(RenderMode::UI);
     uiPSO->SetPsoDesc(quadPso->GetPsoDescription());
 
     // Create the blending setup
@@ -192,7 +192,7 @@ void RenderModeFactory::LoadDefaultPSO(std::shared_ptr<GDevice> device, std::sha
         ssaoBlurPSO->SetShader(shaders["ssaoBlurVS"].get());
         ssaoBlurPSO->SetShader(shaders["ssaoBlurPS"].get());
 
-        
+
         PSO[ssaoPSO->GetRenderMode()] = std::move(ssaoPSO);
         PSO[ssaoBlurPSO->GetRenderMode()] = std::move(ssaoBlurPSO);
     }

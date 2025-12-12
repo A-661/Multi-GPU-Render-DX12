@@ -21,7 +21,7 @@ namespace PEPEngine::Graphics
         default: return L"";
         }
     }
-    
+
     GDescriptorHeap::GDescriptorHeap(const std::shared_ptr<GDevice>& device, const D3D12_DESCRIPTOR_HEAP_TYPE type,
                                      const uint32_t descriptorsCount)
         : heapType(type), descriptorCount(descriptorsCount), device(device)
@@ -37,7 +37,7 @@ namespace PEPEngine::Graphics
         ThrowIfFailed(device->GetDXDevice()->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&descriptorHeap)));
         const std::wstring name = HeapTypeToWString(heapType).append(L" Heap " + device->GetName());
         descriptorHeap->SetName(name.c_str());
-        
+
         baseCPUPtr = descriptorHeap->GetCPUDescriptorHandleForHeapStart();
         baseGPUPtr = heapDesc.Flags == D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE
                          ? descriptorHeap->GetGPUDescriptorHandleForHeapStart()

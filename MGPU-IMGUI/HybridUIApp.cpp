@@ -14,7 +14,7 @@
 #include "Transform.h"
 #include "Window.h"
 
-HybridUIApp::HybridUIApp(const HINSTANCE hInstance): D3DApp(hInstance)
+HybridUIApp::HybridUIApp(const HINSTANCE hInstance) : D3DApp(hInstance)
 {
     mSceneBounds.Center = Vector3(0.0f, 0.0f, 0.0f);
     mSceneBounds.Radius = 200;
@@ -906,7 +906,7 @@ void HybridUIApp::CreateGO()
 #else
     rotater->AddComponent(std::make_shared<Rotater>(10));
 #endif
-    
+
     gameObjects.push_back(std::move(camera));
     gameObjects.push_back(std::move(rotater));
 
@@ -1404,40 +1404,126 @@ LRESULT HybridUIApp::MsgProc(const HWND hwnd, const UINT msg, const WPARAM wPara
             keyboard.OnKeyReleased(keycode);
             return 0;
         }
-
-    case WM_KEYDOWN:
+    case WM_INPUT:
         {
-            auto keycode = static_cast<char>(wParam);
-            if (keyboard.IsKeysAutoRepeat())
+            UINT dataSize;
+            GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, nullptr, &dataSize,
+                            sizeof(RAWINPUTHEADER));
+            //Need to populate data size first
+
+            if (dataSize > 0)
             {
-                keyboard.OnKeyPressed(keycode);
-            }
-            else
-            {
-                const bool wasPressed = lParam & 0x40000000;
-                if (!wasPressed)
+                auto rawdata = std::make_unique<BYTE[]>(dataSize);
+                if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, rawdata.get(), &dataSize,
+                                    sizeof(RAWINPUTHEADER)) == dataSize)
                 {
-                    keyboard.OnKeyPressed(keycode);
+                    auto raw = reinterpret_cast<RAWINPUT*>(rawdata.get());
+                    if (raw->header.dwType == RIM_TYPEMOUSE)
+                    {
+                        mouse.OnMouseMoveRaw(raw->data.mouse.lLastX, raw->data.mouse.lLastY);
+                    }
                 }
             }
 
-
-            if (keycode == (VK_SPACE) && keyboard.KeyIsPressed(VK_SPACE))
-            {
-                IsUseSharedUI = !IsUseSharedUI;
-                Flush();
-                UIPath->ChangeDevice(IsUseSharedUI ? secondDevice : primeDevice);
-            }
-
-            if (keycode == VK_ESCAPE && keyboard.KeyIsPressed(VK_ESCAPE))
-            {
-                Flush();
-                IsStop = true;
-            }
-
+            return DefWindowProc(hwnd, msg, wParam, lParam);
+        }
+    //Mouse Messages
+    case WM_MOUSEMOVE:
+        {
+            int x = LOWORD(lParam);
+            int y = HIWORD(lParam);
+            mouse.OnMouseMove(x, y);
             return 0;
         }
-    }
+    case WM_LBUTTONDOWN:
+        {
+            int x = LOWORD(lParam);
+            int y = HIWORD(lParam);
+            mouse.OnLeftPressed(x, y);
+            return 0;
+        }
+    case WM_RBUTTONDOWN:
+        {
+            int x = LOWORD(lParam);
+            int y = HIWORD(lParam);
+            mouse.OnRightPressed(x, y);
+            return 0;
+        }
+    case WM_MBUTTONDOWN:
+        {
+            int x = LOWORD(lParam);
+            int y = HIWORD(lParam);
+            mouse.OnMiddlePressed(x, y);
+            return 0;
+        }
+    case WM_LBUTTONUP:
+        {
+            int x = LOWORD(lParam);
+            int y = HIWORD(lParam);
+            mouse.OnLeftReleased(x, y);
+            return 0;
+        }
+    case WM_RBUTTONUP:
+        {
+            int x = LOWORD(lParam);
+            int y = HIWORD(lParam);
+            mouse.OnRightReleased(x, y);
+            return 0;
+        }
+    case WM_MBUTTONUP:
+        {
+            int x = LOWORD(lParam);
+            int y = HIWORD(lParam);
+            mouse.OnMiddleReleased(x, y);
+            return 0;
+        }
+    case WM_MOUSEWHEEL:
+        {
+            int x = LOWORD(lParam);
+            int y = HIWORD(lParam);
+            if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
+            {
+                mouse.OnWheelUp(x, y);
+            }
+            else if (GET_WHEEL_DELTA_WPARAM(wParam) < 0)
+            {
+                mouse.OnWheelDown(x, y);
+            }
+            return 0;
+        }
 
-    return D3DApp::MsgProc(hwnd, msg, wParam, lParam);
-}
+        case WM_KEYDOWN:
+            {
+                auto keycode = static_cast<char>(wParam);
+                if (keyboard.IsKeysAutoRepeat())
+                {
+                    keyboard.OnKeyPressed(keycode);
+                }
+                else
+                {
+                    const bool wasPressed = lParam & 0x40000000;
+                    if (!wasPressed)
+                    {
+                        keyboard.OnKeyPressed(keycode);
+                    }
+                }
+
+                if (keycode == (VK_SPACE) && keyboard.KeyIsPressed(VK_SPACE))
+                {
+                    IsUseSharedUI = !IsUseSharedUI;
+                    Flush();
+                    UIPath->ChangeDevice(IsUseSharedUI ? secondDevice : primeDevice);
+                }
+
+                if (keycode == VK_ESCAPE && keyboard.KeyIsPressed(VK_ESCAPE))
+                {
+                    Flush();
+                    IsStop = true;
+                }
+
+                return 0;
+            }
+        }
+
+        return D3DApp::MsgProc(hwnd, msg, wParam, lParam);
+    }

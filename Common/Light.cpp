@@ -29,7 +29,7 @@ LightType Light::Type() const
     return type;
 }
 
-Light::Light(LightType type): type(type)
+Light::Light(LightType type) : type(type)
 {
 }
 

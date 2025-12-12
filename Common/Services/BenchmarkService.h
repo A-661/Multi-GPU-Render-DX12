@@ -20,7 +20,7 @@ public:
     void Start();
 
     template <class T = BenchmarkState, typename... Args>
-    inline T& AddState(Args&&... args)
+    T& AddState(Args&&... args)
     {
         states.emplace_back(std::make_shared<T>(std::forward<Args>(args)...));
         const auto& state = states.back();

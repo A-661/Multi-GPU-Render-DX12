@@ -144,7 +144,7 @@ namespace PEPEngine::Graphics
     void GResource::SetD3D12Resource(const std::shared_ptr<GDevice> device, ComPtr<ID3D12Resource> d3d12Resource,
                                      const D3D12_CLEAR_VALUE* clearValue)
     {
-        dxResource = std::move(d3d12Resource);        
+        dxResource = std::move(d3d12Resource);
         description = dxResource->GetDesc();
         this->device = device;
         if (clearValue)

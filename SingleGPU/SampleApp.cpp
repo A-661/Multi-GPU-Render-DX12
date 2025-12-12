@@ -117,12 +117,12 @@ namespace Common
         LoadTextures(cmdList);
         LoadModels();
         GeneratedMipMap();
-        
+
         commandQueue->Flush();
         commandQueue->WaitForFenceValue(commandQueue->ExecuteCommandList(cmdList));
         GDeviceFactory::GetHardwareDevice()->Flush();
         Flush();
-        
+
         BuildTexturesHeap();
         Flush();
         BuildShadersAndInputLayout();
@@ -145,9 +145,9 @@ namespace Common
         Flush();
         ssao->SetPipelineData(*psos[RenderMode::Ssao], *psos[RenderMode::SsaoBlur]);
         loader.ClearTrackedObjects();
-        
+
         Flush();
-        
+
         return true;
     }
 
@@ -398,7 +398,7 @@ namespace Common
         cmdList->SetDescriptorsHeap(ssao->AmbientMapSrv());
         cmdList->SetDescriptorsHeap(&srvHeap);
         cmdList->UpdateDescriptorHeaps();
-        
+
         //Main Path Data
         cmdList->
             SetRootConstantBufferView(StandardShaderSlot::CameraData, *currentFrameResource->PassConstantUploadBuffer);
@@ -916,7 +916,7 @@ namespace Common
     {
         srvHeap = std::move(
             GDeviceFactory::GetHardwareDevice(GraphicAdapterPrimary)->AllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-                                                             loader.GetLoadTexturesCount()));
+                                                                                          loader.GetLoadTexturesCount()));
 
         ssao->BuildDescriptors();
     }
@@ -1222,7 +1222,7 @@ namespace Common
             frameResources.push_back(
                 std::make_unique<FrameResource>(GDeviceFactory::GetHardwareDevice(), 2, gameObjects.size(),
                                                 loader.GetMaterials().size()));
-        }        
+        }
     }
 
     void SampleApp::BuildMaterials()
@@ -1266,8 +1266,8 @@ namespace Common
         auto renderer = std::make_shared<ModelRenderer>(GDeviceFactory::GetHardwareDevice(), models[L"quad"]);
         models[L"quad"]->SetMeshMaterial(0, loader.GetMaterial(loader.GetMaterialIndex(L"seamless")));
         quadRitem->AddComponent(renderer);
-        typedGameObjects[(uint8_t)RenderMode::Debug].push_back(quadRitem.get());
-        typedGameObjects[(uint8_t)RenderMode::Quad].push_back(quadRitem.get());
+        typedGameObjects[static_cast<uint8_t>(RenderMode::Debug)].push_back(quadRitem.get());
+        typedGameObjects[static_cast<uint8_t>(RenderMode::Quad)].push_back(quadRitem.get());
         gameObjects.push_back(std::move(quadRitem));
 
         auto skySphere = std::make_unique<GameObject>("Sky");
@@ -1277,7 +1277,7 @@ namespace Common
                                             loader.GetTextureIndex(L"skyTex"));
         models[L"sphere"]->SetMeshMaterial(0, loader.GetMaterial(loader.GetMaterialIndex(L"sky")));
         skySphere->AddComponent(renderer);
-        typedGameObjects[(uint8_t)RenderMode::SkyBox].push_back(skySphere.get());
+        typedGameObjects[static_cast<uint8_t>(RenderMode::SkyBox)].push_back(skySphere.get());
         gameObjects.push_back(std::move(skySphere));
 
 
@@ -1309,7 +1309,7 @@ namespace Common
             nano->GetTransform()->SetPosition(Vector3::Right * -15 + Vector3::Forward * 12 * i);
             nano->GetTransform()->SetEulerRotate(Vector3(0, -90, 0));
 
-            typedGameObjects[(uint8_t)RenderMode::Opaque].push_back(nano.get());
+            typedGameObjects[static_cast<uint8_t>(RenderMode::Opaque)].push_back(nano.get());
             gameObjects.push_back(std::move(nano));
 
 
@@ -1318,7 +1318,7 @@ namespace Common
             doom->GetTransform()->SetPosition(Vector3::Right * 15 + Vector3::Forward * 12 * i);
             doom->GetTransform()->SetEulerRotate(Vector3(0, 90, 0));
 
-            typedGameObjects[(uint8_t)RenderMode::Opaque].push_back(doom.get());
+            typedGameObjects[static_cast<uint8_t>(RenderMode::Opaque)].push_back(doom.get());
             gameObjects.push_back(std::move(doom));
         }
 
@@ -1329,14 +1329,14 @@ namespace Common
                 auto atlas = CreateGOWithRenderer(models[L"atlas"]);
                 atlas->GetTransform()->SetPosition(
                     Vector3::Right * -60 + Vector3::Right * -30 * j + Vector3::Up * 11 + Vector3::Forward * 10 * i);
-                typedGameObjects[(uint8_t)RenderMode::Opaque].push_back(atlas.get());
+                typedGameObjects[static_cast<uint8_t>(RenderMode::Opaque)].push_back(atlas.get());
                 gameObjects.push_back(std::move(atlas));
 
 
                 auto pbody = CreateGOWithRenderer(models[L"pbody"]);
                 pbody->GetTransform()->SetPosition(
                     Vector3::Right * 130 + Vector3::Right * -30 * j + Vector3::Up * 11 + Vector3::Forward * 10 * i);
-                typedGameObjects[(uint8_t)RenderMode::Opaque].push_back(pbody.get());
+                typedGameObjects[static_cast<uint8_t>(RenderMode::Opaque)].push_back(pbody.get());
                 gameObjects.push_back(std::move(pbody));
             }
         }
@@ -1346,7 +1346,7 @@ namespace Common
         platform->SetScale(0.2);
         platform->GetTransform()->SetEulerRotate(Vector3(90, 90, 0));
         platform->GetTransform()->SetPosition(Vector3::Backward * -130);
-        typedGameObjects[(uint8_t)RenderMode::Opaque].push_back(platform.get());
+        typedGameObjects[static_cast<uint8_t>(RenderMode::Opaque)].push_back(platform.get());
 
         auto rotater = std::make_unique<GameObject>();
         rotater->GetTransform()->SetParent(platform->GetTransform().get());
@@ -1371,7 +1371,7 @@ namespace Common
         stair->SetScale(0.2);
         stair->GetTransform()->SetEulerRotate(Vector3(0, 0, 90));
         stair->GetTransform()->SetPosition(Vector3::Left * 700);
-        typedGameObjects[(uint8_t)RenderMode::Opaque].push_back(stair.get());
+        typedGameObjects[static_cast<uint8_t>(RenderMode::Opaque)].push_back(stair.get());
 
 
         auto columns = CreateGOWithRenderer(models[L"columns"]);
@@ -1379,7 +1379,7 @@ namespace Common
         columns->SetScale(0.8);
         columns->GetTransform()->SetEulerRotate(Vector3(0, 0, 90));
         columns->GetTransform()->SetPosition(Vector3::Up * 2000 + Vector3::Forward * 900);
-        typedGameObjects[(uint8_t)RenderMode::Opaque].push_back(columns.get());
+        typedGameObjects[static_cast<uint8_t>(RenderMode::Opaque)].push_back(columns.get());
 
         gameObjects.push_back(std::move(columns));
         gameObjects.push_back(std::move(stair));
@@ -1389,7 +1389,7 @@ namespace Common
         fountain->SetScale(0.005);
         fountain->GetTransform()->SetEulerRotate(Vector3(90, 0, 0));
         fountain->GetTransform()->SetPosition(Vector3::Up * 35 + Vector3::Backward * 77);
-        typedGameObjects[(uint8_t)RenderMode::Opaque].push_back(fountain.get());
+        typedGameObjects[static_cast<uint8_t>(RenderMode::Opaque)].push_back(fountain.get());
         gameObjects.push_back(std::move(fountain));
 
         auto mountDragon = CreateGOWithRenderer(models[L"mountDragon"]);
@@ -1397,7 +1397,7 @@ namespace Common
         mountDragon->GetTransform()->SetPosition(Vector3::Right * -960 + Vector3::Up * 45 + Vector3::Backward * 775);
 
 
-        typedGameObjects[(uint8_t)RenderMode::Opaque].push_back(mountDragon.get());
+        typedGameObjects[static_cast<uint8_t>(RenderMode::Opaque)].push_back(mountDragon.get());
         gameObjects.push_back(std::move(mountDragon));
 
 
@@ -1406,7 +1406,7 @@ namespace Common
         desertDragon->GetTransform()->SetPosition(Vector3::Right * 960 + Vector3::Up * -5 + Vector3::Backward * 775);
 
 
-        typedGameObjects[(uint8_t)RenderMode::Opaque].push_back(desertDragon.get());
+        typedGameObjects[static_cast<uint8_t>(RenderMode::Opaque)].push_back(desertDragon.get());
         gameObjects.push_back(std::move(desertDragon));
 
         auto griffon = CreateGOWithRenderer(models[L"griffon"]);
@@ -1415,7 +1415,7 @@ namespace Common
         griffon->GetTransform()->SetPosition(Vector3::Right * -355 + Vector3::Up * -7 + Vector3::Backward * 17);
 
 
-        typedGameObjects[(uint8_t)RenderMode::OpaqueAlphaDrop].push_back(griffon.get());
+        typedGameObjects[static_cast<uint8_t>(RenderMode::OpaqueAlphaDrop)].push_back(griffon.get());
         gameObjects.push_back(std::move(griffon));
 
         auto griffon1 = CreateGOWithRenderer(models[L"griffonOld"]);
@@ -1423,7 +1423,7 @@ namespace Common
         griffon1->GetTransform()->SetEulerRotate(Vector3(90, 0, 0));
         griffon1->GetTransform()->SetPosition(Vector3::Right * 355 + Vector3::Up * -7 + Vector3::Backward * 17);
 
-        typedGameObjects[(uint8_t)RenderMode::OpaqueAlphaDrop].push_back(griffon1.get());
+        typedGameObjects[static_cast<uint8_t>(RenderMode::OpaqueAlphaDrop)].push_back(griffon1.get());
         gameObjects.push_back(std::move(griffon1));
     }
 
@@ -1453,10 +1453,10 @@ namespace Common
         shadowMap->PopulatePreRenderCommands(cmdList);
 
         cmdList->SetPipelineState(*psos[RenderMode::ShadowMapOpaque]);
-        DrawGameObjects(cmdList, typedGameObjects[(uint8_t)RenderMode::Opaque]);
+        DrawGameObjects(cmdList, typedGameObjects[static_cast<uint8_t>(RenderMode::Opaque)]);
 
         cmdList->SetPipelineState(*psos[RenderMode::ShadowMapOpaqueDrop]);
-        DrawGameObjects(cmdList, typedGameObjects[(uint8_t)RenderMode::OpaqueAlphaDrop]);
+        DrawGameObjects(cmdList, typedGameObjects[static_cast<uint8_t>(RenderMode::OpaqueAlphaDrop)]);
 
         cmdList->TransitionBarrier(shadowMap->GetTexture(), D3D12_RESOURCE_STATE_COMMON);
         cmdList->FlushResourceBarriers();
@@ -1488,9 +1488,9 @@ namespace Common
         cmdList->SetRootConstantBufferView(1, *currentFrameResource->PassConstantUploadBuffer);
 
         cmdList->SetPipelineState(*psos[RenderMode::DrawNormalsOpaque]);
-        DrawGameObjects(cmdList, typedGameObjects[(uint8_t)RenderMode::Opaque]);
+        DrawGameObjects(cmdList, typedGameObjects[static_cast<uint8_t>(RenderMode::Opaque)]);
         cmdList->SetPipelineState(*psos[RenderMode::DrawNormalsOpaqueDrop]);
-        DrawGameObjects(cmdList, typedGameObjects[(uint8_t)RenderMode::OpaqueAlphaDrop]);
+        DrawGameObjects(cmdList, typedGameObjects[static_cast<uint8_t>(RenderMode::OpaqueAlphaDrop)]);
 
 
         cmdList->TransitionBarrier(normalMap, D3D12_RESOURCE_STATE_COMMON);

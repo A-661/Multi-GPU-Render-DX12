@@ -20,7 +20,7 @@ using namespace PEPEngine;
 using namespace Utils;
 using namespace Graphics;
 
-HybridShadowApp::HybridShadowApp(const HINSTANCE hInstance): D3DApp(hInstance), gpuTimes{}, fullRect()
+HybridShadowApp::HybridShadowApp(const HINSTANCE hInstance) : D3DApp(hInstance), gpuTimes{}, fullRect()
 {
     mSceneBounds.Center = Vector3(0.0f, 0.0f, 0.0f);
     mSceneBounds.Radius = 200;

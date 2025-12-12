@@ -8,7 +8,7 @@
 #include "Transform.h"
 
 SkyBox::SkyBox(const std::shared_ptr<GDevice>& device, const std::shared_ptr<GModel>& model, GTexture& skyMapTexture,
-               GDescriptor* srvMemory, UINT offset): ModelRenderer(device, model)
+               GDescriptor* srvMemory, UINT offset) : ModelRenderer(device, model)
 {
     gpuTextureHandle = srvMemory->GetGPUHandle(offset);
     cpuTextureHandle = srvMemory->GetCPUHandle(offset);

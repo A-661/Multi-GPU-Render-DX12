@@ -115,6 +115,5 @@ namespace PEPEngine::Utils
         // processor goes into a power save mode or we get shuffled to another
         // processor, then mDeltaTime can be negative.
         mDeltaTime = (((mDeltaTime) > (0.0f)) ? (mDeltaTime) : (0.0f));
-        
     }
 }

@@ -6,6 +6,8 @@
 #include "d3d12.h"
 #include <SimpleMath.h>
 
+using namespace DirectX::SimpleMath;
+
 namespace PEPEngine::Utils
 {
     class MathHelper
@@ -93,7 +95,7 @@ namespace PEPEngine::Utils
         static const float Infinity;
         static const float Pi;
 
-        static DirectX::SimpleMath::Vector3 ToEulerAngles(DirectX::SimpleMath::Quaternion q);
+        static DirectX::SimpleMath::Vector3 ToEulerAngles(Quaternion q);
 
 
         // yaw (Z), pitch (Y), roll (X)

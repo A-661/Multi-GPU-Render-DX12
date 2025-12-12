@@ -28,7 +28,7 @@ D3D12_INDEX_BUFFER_VIEW* GMesh::GetIndexView() const
     return indexBuffer->IndexBufferView();
 }
 
-GMesh::GMesh(const std::shared_ptr<NativeMesh>& data, std::shared_ptr<GCommandList>& cmdList): mesh(std::move(data))
+GMesh::GMesh(const std::shared_ptr<NativeMesh>& data, std::shared_ptr<GCommandList>& cmdList) : mesh(std::move(data))
 {
     indexBuffer = std::make_shared<GMeshBuffer>(std::move(GMeshBuffer::CreateBuffer(
         cmdList, mesh->GetIndexes().data(), mesh->GetIndexSize(), mesh->GetIndexes().size(),

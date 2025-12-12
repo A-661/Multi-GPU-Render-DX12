@@ -66,7 +66,7 @@ class NativeModel
     std::wstring name;
 
 public:
-    NativeModel(const std::wstring& name): name(name)
+    NativeModel(const std::wstring& name) : name(name)
     {
     }
 

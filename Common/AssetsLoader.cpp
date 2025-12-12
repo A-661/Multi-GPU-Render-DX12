@@ -297,7 +297,7 @@ std::shared_ptr<GModel>& AssetsLoader::CreateModelFromFile(const std::shared_ptr
 }
 
 
-AssetsLoader::AssetsLoader(const std::shared_ptr<GDevice>& device): device(device)
+AssetsLoader::AssetsLoader(const std::shared_ptr<GDevice>& device) : device(device)
 {
 }
 

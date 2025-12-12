@@ -159,8 +159,8 @@ void CloudGenerator::SecondCompute(const std::shared_ptr<GCommandList>& cmdList,
 
 
 CloudGenerator::CloudGenerator(const std::shared_ptr<GDevice>& primeDevice, const std::shared_ptr<GDevice>& secondDevice,
-                               const UINT width, const UINT height): primeDevice(primeDevice), secondDevice(secondDevice),
-                                                         width(width), height(height)
+                               const UINT width, const UINT height) : primeDevice(primeDevice), secondDevice(secondDevice),
+                                                                      width(width), height(height)
 {
     Initialize();
 

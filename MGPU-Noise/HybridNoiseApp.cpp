@@ -17,7 +17,7 @@
 #include "Transform.h"
 #include "Window.h"
 
-HybridNoiseApp::HybridNoiseApp(const HINSTANCE hInstance): D3DApp(hInstance)
+HybridNoiseApp::HybridNoiseApp(const HINSTANCE hInstance) : D3DApp(hInstance)
 {
     mSceneBounds.Center = Vector3(0.0f, 0.0f, 0.0f);
     mSceneBounds.Radius = 200;
@@ -1258,7 +1258,7 @@ void HybridNoiseApp::CreateGO()
 #if defined(DEBUG) || defined(_DEBUG)
     camera->AddComponent(std::make_shared<CameraController>());
 #else
-	rotater->AddComponent(std::make_shared<Rotater>(10));
+    rotater->AddComponent(std::make_shared<Rotater>(10));
 #endif
 
     gameObjects.push_back(std::move(camera));

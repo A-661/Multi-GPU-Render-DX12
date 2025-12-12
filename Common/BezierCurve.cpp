@@ -4,15 +4,17 @@
 
 using namespace DirectX::SimpleMath;
 
-BezierCurve::BezierCurve(const std::vector<DirectX::SimpleMath::Vector3>& controlPoints)
+BezierCurve::BezierCurve(const std::vector<Vector3>& controlPoints)
     : m_controlPoints(controlPoints)
 {
-    if (controlPoints.size() < 4) {
+    if (controlPoints.size() < 4)
+    {
         throw std::runtime_error("BezierCurve needs at least 4 points");
     }
 }
 
-Vector3 BezierCurve::Evaluate(float t) const {
+Vector3 BezierCurve::Evaluate(float t) const
+{
     const Vector3& P0 = m_controlPoints[0];
     const Vector3& P1 = m_controlPoints[1];
     const Vector3& P2 = m_controlPoints[2];
@@ -31,9 +33,7 @@ Vector3 BezierCurve::Evaluate(float t) const {
         P3 * t3;
 }
 
-const std::vector<DirectX::SimpleMath::Vector3>& BezierCurve::GetControlPoints() const
+const std::vector<Vector3>& BezierCurve::GetControlPoints() const
 {
     return m_controlPoints;
 }
-
-

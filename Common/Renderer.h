@@ -6,7 +6,7 @@
 class Renderer : public Component
 {
 public:
-    Renderer(): Component()
+    Renderer() : Component()
     {
     } ;
 

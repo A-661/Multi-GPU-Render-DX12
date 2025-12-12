@@ -29,7 +29,7 @@ const Vector3& Camera::GetFocusPosition() const
     return focusPosition;
 }
 
-Camera::Camera(const float aspect): aspectRatio(aspect)
+Camera::Camera(const float aspect) : aspectRatio(aspect)
 {
 }
 

@@ -57,7 +57,7 @@ protected:
     {
     }
 
-    BenchmarkState(const FileQueueWriter& writer, float timePerStep = 1.0f): stats(), fileQueueWriter(writer), timeElapsed(0), timePerStatCalculation(timePerStep)
+    BenchmarkState(const FileQueueWriter& writer, float timePerStep = 1.0f) : stats(), fileQueueWriter(writer), timeElapsed(0), timePerStatCalculation(timePerStep)
     {
     }
 

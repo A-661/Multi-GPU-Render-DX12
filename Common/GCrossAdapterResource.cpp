@@ -47,7 +47,7 @@ GCrossAdapterResource::GCrossAdapterResource(D3D12_RESOURCE_DESC& desc, const st
     // We can close the handle after opening the cross-adapter shared resource.
     CloseHandle(heapHandle);
 
-    ThrowIfFailed(openSharedHandleResult);   
+    ThrowIfFailed(openSharedHandleResult);
 
     sharedResource = std::make_shared<GResource>(sharedDevice, desc, crossAdapterResourceHeap[1], name + L" Shared");
 

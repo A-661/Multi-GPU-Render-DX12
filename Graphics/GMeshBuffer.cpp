@@ -24,7 +24,7 @@ namespace PEPEngine::Graphics
         return buffer;
     }
 
-    GMeshBuffer::GMeshBuffer(const GMeshBuffer& rhs): GBuffer(rhs)
+    GMeshBuffer::GMeshBuffer(const GMeshBuffer& rhs) : GBuffer(rhs)
     {
         this->ibv = rhs.ibv;
         this->vbv = rhs.vbv;

@@ -3,18 +3,22 @@
 #include "BezierCurve.h"
 #include "GameObject.h"
 #include "Transform.h"
+#include <initializer_list>
+#include <vector>
 
 class SplineController : public Component {
 public:
     /*
     Example:
-    std::vector<Vector3> controlPoints = {
+    std::vector<Vector3> points = {
     Vector3(-100, 100, -100),
     Vector3(-100, 100, 100),
     Vector3(100, 100, 100),
     Vector3(100, 100, -100)
     };
-    BezierCurve curve(controlPoints);*/
+    auto controller = std::make_shared<SplineController>(points, 0.5f);*/
+    SplineController(const std::vector<DirectX::SimpleMath::Vector3>& points, float speed = 1.0f);
+    SplineController(std::initializer_list<DirectX::SimpleMath::Vector3> points, float speed = 1.0f);
     SplineController(const BezierCurve& curve, float speed = 1.0f);
 
     void Update() override;
@@ -34,12 +38,17 @@ public:
 
     void SetPingPong(bool pingPong);
     bool GetPingPong() const;
-    
+
+    void SetPoints(const std::vector<DirectX::SimpleMath::Vector3>& points);
+    const std::vector<DirectX::SimpleMath::Vector3>& GetPoints() const;
+
     void SetCurve(const BezierCurve& curve);
-    const BezierCurve& GetCurve() const;
 
 private:
-    BezierCurve m_curve;
+    DirectX::SimpleMath::Vector3 EvaluatePosition(float offset) const;
+    void ApplyCurrentPosition() const;
+
+    std::vector<DirectX::SimpleMath::Vector3> m_points;
     float m_speed;
     float m_currentOffset;
     bool m_isPlaying; // default true in constructor

@@ -77,12 +77,6 @@ void HybridEHFApp::Update(const GameTimer& gt)
         secondQueue->WaitForFenceValue(currentFrameResource->SecondRenderFenceValue);
     }
 
-    if (currentFrameResource->SecondFogFenceValue != 0 && !secondQueue->IsFinish(
-        currentFrameResource->SecondFogFenceValue))
-    {
-        secondQueue->WaitForFenceValue(currentFrameResource->SecondFogFenceValue);
-    }
-
     const UINT64 secondReleaseFence = std::max(currentFrameResource->SecondRenderFenceValue,
                                                currentFrameResource->SecondFogFenceValue);
     if (secondReleaseFence != 0)

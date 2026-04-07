@@ -29,6 +29,50 @@ Texture2D<float> gFogMap : register(t1);
 SamplerState gsamPointClamp : register(s0);
 SamplerState gsamLinearClamp : register(s1);
 
+float SafeReciprocal(float value)
+{
+    return (abs(value) > 1e-6f) ? rcp(value) : 1.0f;
+}
+
+float3 ReconstructWorldPosition(float2 uv, float depth)
+{
+    float2 ndc;
+    ndc.x = uv.x * 2.0f - 1.0f;
+    ndc.y = (1.0f - uv.y) * 2.0f - 1.0f;
+
+    float4 clipPos = float4(ndc, depth, 1.0f);
+    float4 viewPos = mul(clipPos, gInvProj);
+    viewPos *= SafeReciprocal(viewPos.w);
+
+    float4 worldPos = mul(viewPos, gInvView);
+    return worldPos.xyz;
+}
+
+float IntegrateHeightFog(float3 rayDir, float rayStart, float rayEnd)
+{
+    if (rayEnd <= rayStart)
+    {
+        return 0.0f;
+    }
+
+    const float lambda = max(gHeightFalloff, 1e-6f);
+    const float baseHeightOffset = gCameraPosW.y - gFogBaseHeight;
+    const float segmentLength = rayEnd - rayStart;
+
+    if (abs(rayDir.y) < 1e-4f)
+    {
+        const float density = gDensity * exp(-lambda * (baseHeightOffset + rayDir.y * rayStart));
+        return density * segmentLength;
+    }
+
+    const float y0 = baseHeightOffset + rayDir.y * rayStart;
+    const float y1 = baseHeightOffset + rayDir.y * rayEnd;
+    const float exp0 = exp(-lambda * y0);
+    const float exp1 = exp(-lambda * y1);
+
+    return abs((gDensity / (lambda * rayDir.y)) * (exp0 - exp1));
+}
+
 [numthreads(32, 32, 1)]
 void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
@@ -41,7 +85,29 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
     }
 
-    gFogOutput[dispatchThreadId.xy] = 0.0f;
+    const float2 uv = (float2(dispatchThreadId.xy) + 0.5f) * gResolution.zw;
+    const float depth = gInputDepth.Load(int3(dispatchThreadId.xy, 0));
+
+    const float3 farWorldPos = ReconstructWorldPosition(uv, 1.0f);
+    const float3 rayVector = farWorldPos - gCameraPosW;
+    const float rayVectorLength = max(length(rayVector), 1e-6f);
+    const float3 rayDir = rayVector / rayVectorLength;
+
+    float maxDistance = rayVectorLength;
+    if (depth < 1.0f - 1e-5f)
+    {
+        const float3 worldPos = ReconstructWorldPosition(uv, depth);
+        maxDistance = max(length(worldPos - gCameraPosW), 1e-3f);
+    }
+
+    const float rayStart = min(gStartDistance, maxDistance);
+    float tau = IntegrateHeightFog(rayDir, rayStart, maxDistance);
+    tau = clamp(tau, 0.0f, 50.0f);
+
+    const float transmittance = exp(-tau);
+    const float fogMask = min(1.0f - transmittance, gMaxOpacity);
+
+    gFogOutput[dispatchThreadId.xy] = saturate(fogMask);
 }
 
 struct VSOut

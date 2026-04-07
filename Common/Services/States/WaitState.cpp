@@ -10,6 +10,7 @@ void WaitState::OnStatsCalculated(const TimeStats& stats)
 void WaitState::Enter()
 {
     BenchmarkState::Enter();
+    currentStatsCalculation = 0;
     OnEnter(fileQueueWriter);
 }
 

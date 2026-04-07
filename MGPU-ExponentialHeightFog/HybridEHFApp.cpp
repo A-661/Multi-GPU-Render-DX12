@@ -38,6 +38,12 @@ void HybridEHFApp::ChangeAOMethod()
     IsUseHBAO = !IsUseHBAO;
 }
 
+void HybridEHFApp::SwitchFogMode()
+{
+    Flush();
+    IsUsingSharedFog = !IsUsingSharedFog;
+}
+
 void HybridEHFApp::ResetCamera() const
 {
     auto& CamTrans = camera->gameObject->GetTransform();
@@ -264,7 +270,6 @@ void HybridEHFApp::PopulateFogMapCommands(const std::shared_ptr<GCommandList>& c
     }
 
     const auto& resources = fogPass->GetPrimeResources();
-    const auto& crossResources = fogPass->GetCrossResources();
 
     GTexture depthSource;
     if (IsUseHBAO)
@@ -275,6 +280,15 @@ void HybridEHFApp::PopulateFogMapCommands(const std::shared_ptr<GCommandList>& c
     {
         depthSource = ssaoPass->GetPrimeResources().GetDepthMap();
     }
+
+    if (!IsUsingSharedFog)
+    {
+        cmdList->CopyResource(resources.GetDepthMap(), depthSource);
+        fogPass->Compute(cmdList, currentFrameResource->PrimeFogConstantUploadBuffer, resources);
+        return;
+    }
+
+    const auto& crossResources = fogPass->GetCrossResources();
 
     cmdList->CopyResource(crossResources.GetDepthMap().GetPrimeResource(), depthSource);
     cmdList->CopyResource(resources.GetFogMap(), crossResources.GetFogMap().GetPrimeResource());
@@ -487,79 +501,135 @@ bool HybridEHFApp::Initialize()
 #endif
 
 
-    auto& NativeSSAOState = benchmark.AddState<WaitState>(TestTime, FileQueueWriter(Benchmark::GetLogFile(L"Native SSAO ", *primeDevice, *secondDevice)));
-    NativeSSAOState.OnEnter = [](FileQueueWriter& logs)
-    {
-        logs.PushMessage(L"FPS;MSPF;MinFPS;MinMSPF;MaxFPS;MaxMSPF");
-    };
-
-    NativeSSAOState.OnStatChanged = [this](FileQueueWriter& logs, const TimeStats& ts, float progress)
-    {
-        Benchmark::PrintStatsCSV(ts, logs);
-        MainWindow->SetWindowTitle(L"Native SSAO Progress " + std::format(L"{:.2f}", progress * 100) + L"% FPS:" + std::to_wstring(ts.fps));
-    };
-
-    NativeSSAOState.OnExit = [this](FileQueueWriter& logs)
-    {
-        logs.WriteAllLog();
-        Flush();
-    };
-
-    auto& HybridSSAOState = benchmark.AddState<WaitState>(TestTime, FileQueueWriter(Benchmark::GetLogFile(L"Hybrid SSAO ", *primeDevice, *secondDevice)));
-    HybridSSAOState.OnEnter = [this](FileQueueWriter& logs)
+    const auto prepareBenchmarkState = [this](FileQueueWriter& logs, const bool useSharedSSAO, const bool useHBAO,
+                                              const bool useSharedFog)
     {
         ResetCamera();
-        SwitchDevice();
+
+        const bool needFlush = IsUsingSharedSSAO != useSharedSSAO
+            || IsUseHBAO != useHBAO
+            || IsUsingSharedFog != useSharedFog;
+
+        IsUsingSharedSSAO = useSharedSSAO;
+        IsUseHBAO = useHBAO;
+        IsUsingSharedFog = useSharedFog;
+        IsUseFog = true;
+
+        if (needFlush)
+        {
+            Flush();
+        }
+
         logs.PushMessage(L"FPS;MSPF;MinFPS;MinMSPF;MaxFPS;MaxMSPF");
     };
-    HybridSSAOState.OnStatChanged = [this](FileQueueWriter& logs, const TimeStats& ts, float progress)
+
+    const auto updateBenchmarkState = [this](FileQueueWriter& logs, const TimeStats& ts, const float progress,
+                                             const wchar_t* stateName)
     {
         Benchmark::PrintStatsCSV(ts, logs);
-        MainWindow->SetWindowTitle(L"Hybrid SSAO Progress " + std::format(L"{:.2f}", progress * 100) + L"% FPS:" + std::to_wstring(ts.fps));
+        MainWindow->SetWindowTitle(std::wstring(stateName) + L" Progress " + std::format(L"{:.2f}", progress * 100)
+            + L"% FPS:" + std::to_wstring(ts.fps));
     };
-    HybridSSAOState.OnExit = [this](FileQueueWriter& logs)
+
+    const auto finishBenchmarkState = [this](FileQueueWriter& logs, const bool stopAfterState = false)
     {
         logs.WriteAllLog();
         Flush();
-        SwitchDevice();
+
+        if (stopAfterState)
+        {
+            IsStop = true;
+        }
     };
 
-
-    auto& NativeHBAOState = benchmark.AddState<WaitState>(TestTime, FileQueueWriter(Benchmark::GetLogFile(L"Native HBAO ", *primeDevice, *secondDevice)));
-    NativeHBAOState.OnEnter = [this](FileQueueWriter& logs)
+    auto& NativeSSAOState = benchmark.AddState<WaitState>(
+        TestTime, FileQueueWriter(Benchmark::GetLogFile(L"Native SSAO ", *primeDevice, *secondDevice)));
+    NativeSSAOState.OnEnter = [prepareBenchmarkState](FileQueueWriter& logs)
     {
-        ResetCamera();
-        logs.PushMessage(L"FPS;MSPF;MinFPS;MinMSPF;MaxFPS;MaxMSPF");
+        prepareBenchmarkState(logs, false, false, true);
     };
-    NativeHBAOState.OnStatChanged = [this](FileQueueWriter& logs, const TimeStats& ts, float progress)
+    NativeSSAOState.OnStatChanged = [updateBenchmarkState](FileQueueWriter& logs, const TimeStats& ts, const float progress)
     {
-        Benchmark::PrintStatsCSV(ts, logs);
-        MainWindow->SetWindowTitle(L"Native HBAO Progress " + std::format(L"{:.2f}", progress * 100) + L"% FPS:" + std::to_wstring(ts.fps));
+        updateBenchmarkState(logs, ts, progress, L"Native SSAO");
     };
-    NativeHBAOState.OnExit = [this](FileQueueWriter& logs)
+    NativeSSAOState.OnExit = [finishBenchmarkState](FileQueueWriter& logs)
     {
-        logs.WriteAllLog();
-        Flush();
+        finishBenchmarkState(logs);
     };
 
-    auto& HybridHBAOState = benchmark.AddState<WaitState>(TestTime, FileQueueWriter(Benchmark::GetLogFile(L"Hybrid HBAO ", *primeDevice, *secondDevice)));
-    HybridHBAOState.OnEnter = [this](FileQueueWriter& logs)
+    auto& HybridSSAOState = benchmark.AddState<WaitState>(
+        TestTime, FileQueueWriter(Benchmark::GetLogFile(L"Hybrid SSAO ", *primeDevice, *secondDevice)));
+    HybridSSAOState.OnEnter = [prepareBenchmarkState](FileQueueWriter& logs)
     {
-        ResetCamera();
-        logs.PushMessage(L"FPS;MSPF;MinFPS;MinMSPF;MaxFPS;MaxMSPF");
-        SwitchDevice();
+        prepareBenchmarkState(logs, true, false, true);
     };
-    HybridHBAOState.OnStatChanged = [this](FileQueueWriter& logs, const TimeStats& ts, float progress)
+    HybridSSAOState.OnStatChanged = [updateBenchmarkState](FileQueueWriter& logs, const TimeStats& ts, const float progress)
     {
-        Benchmark::PrintStatsCSV(ts, logs);
-        MainWindow->SetWindowTitle(L"Hybrid HBAO Progress " + std::format(L"{:.2f}", progress * 100) + L"% FPS:" + std::to_wstring(ts.fps));
+        updateBenchmarkState(logs, ts, progress, L"Hybrid SSAO");
     };
-    HybridHBAOState.OnExit = [this](FileQueueWriter& logs)
+    HybridSSAOState.OnExit = [finishBenchmarkState](FileQueueWriter& logs)
     {
-        logs.WriteAllLog();
-        SwitchDevice();
-        Flush();
-        IsStop = true;
+        finishBenchmarkState(logs);
+    };
+
+    auto& NativeHBAOState = benchmark.AddState<WaitState>(
+        TestTime, FileQueueWriter(Benchmark::GetLogFile(L"Native HBAO ", *primeDevice, *secondDevice)));
+    NativeHBAOState.OnEnter = [prepareBenchmarkState](FileQueueWriter& logs)
+    {
+        prepareBenchmarkState(logs, false, true, true);
+    };
+    NativeHBAOState.OnStatChanged = [updateBenchmarkState](FileQueueWriter& logs, const TimeStats& ts, const float progress)
+    {
+        updateBenchmarkState(logs, ts, progress, L"Native HBAO");
+    };
+    NativeHBAOState.OnExit = [finishBenchmarkState](FileQueueWriter& logs)
+    {
+        finishBenchmarkState(logs);
+    };
+
+    auto& HybridHBAOState = benchmark.AddState<WaitState>(
+        TestTime, FileQueueWriter(Benchmark::GetLogFile(L"Hybrid HBAO ", *primeDevice, *secondDevice)));
+    HybridHBAOState.OnEnter = [prepareBenchmarkState](FileQueueWriter& logs)
+    {
+        prepareBenchmarkState(logs, true, true, true);
+    };
+    HybridHBAOState.OnStatChanged = [updateBenchmarkState](FileQueueWriter& logs, const TimeStats& ts, const float progress)
+    {
+        updateBenchmarkState(logs, ts, progress, L"Hybrid HBAO");
+    };
+    HybridHBAOState.OnExit = [finishBenchmarkState](FileQueueWriter& logs)
+    {
+        finishBenchmarkState(logs);
+    };
+
+    auto& NativeFogState = benchmark.AddState<WaitState>(
+        TestTime, FileQueueWriter(Benchmark::GetLogFile(L"Native Fog ", *primeDevice, *secondDevice)));
+    NativeFogState.OnEnter = [prepareBenchmarkState](FileQueueWriter& logs)
+    {
+        prepareBenchmarkState(logs, false, false, false);
+    };
+    NativeFogState.OnStatChanged = [updateBenchmarkState](FileQueueWriter& logs, const TimeStats& ts, const float progress)
+    {
+        updateBenchmarkState(logs, ts, progress, L"Native Fog");
+    };
+    NativeFogState.OnExit = [finishBenchmarkState](FileQueueWriter& logs)
+    {
+        finishBenchmarkState(logs);
+    };
+
+    auto& HybridFogState = benchmark.AddState<WaitState>(
+        TestTime, FileQueueWriter(Benchmark::GetLogFile(L"Hybrid Fog ", *primeDevice, *secondDevice)));
+    HybridFogState.OnEnter = [prepareBenchmarkState](FileQueueWriter& logs)
+    {
+        prepareBenchmarkState(logs, false, false, true);
+    };
+    HybridFogState.OnStatChanged = [updateBenchmarkState](FileQueueWriter& logs, const TimeStats& ts, const float progress)
+    {
+        updateBenchmarkState(logs, ts, progress, L"Hybrid Fog");
+    };
+    HybridFogState.OnExit = [finishBenchmarkState](FileQueueWriter& logs)
+    {
+        finishBenchmarkState(logs, true);
     };
 
 
@@ -1620,6 +1690,11 @@ LRESULT HybridEHFApp::MsgProc(const HWND hwnd, const UINT msg, const WPARAM wPar
             {
                 IsUseHBAO = !IsUseHBAO;
                 Flush();
+            }
+
+            if (keycode == (VK_F4) && keyboard.KeyIsPressed(VK_F4))
+            {
+                SwitchFogMode();
             }
 
             if (keycode == (VK_F9) && keyboard.KeyIsPressed(VK_F9))

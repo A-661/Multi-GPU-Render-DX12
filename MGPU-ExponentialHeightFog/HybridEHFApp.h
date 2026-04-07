@@ -33,6 +33,7 @@ public:
     void SetBlurPassCount(const USHORT blurCount) { this->blurCount = blurCount; }
     void SwitchDevice();
     void ChangeAOMethod();
+    void SwitchFogMode();
     void ResetCamera() const;
 
 protected:
@@ -102,7 +103,8 @@ protected:
 
     bool IsUsingSharedSSAO = false;
     bool IsUseHBAO = false;
-    bool IsUseFog = true;    
+    bool IsUseFog = true;
+    bool IsUsingSharedFog = true;
     
     UINT pathMapShow = 0;
     //off, shadowMap, ssaoMap

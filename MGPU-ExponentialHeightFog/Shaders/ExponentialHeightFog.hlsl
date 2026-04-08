@@ -34,11 +34,6 @@ float SafeReciprocal(float value)
     return (abs(value) > 1e-6f) ? rcp(value) : 1.0f;
 }
 
-float InterleavedGradientNoise(float2 pixel)
-{
-    return frac(52.9829189f * frac(dot(pixel, float2(0.06711056f, 0.00583715f))));
-}
-
 float3 ReconstructWorldPosition(float2 uv, float depth)
 {
     float2 ndc;
@@ -53,62 +48,29 @@ float3 ReconstructWorldPosition(float2 uv, float depth)
     return worldPos.xyz;
 }
 
-float ComputeFogDensity(float height)
-{
-    const float relativeHeight = height - gFogBaseHeight;
-    return gDensity * exp(-max(gHeightFalloff, 1e-6f) * relativeHeight);
-}
-
-float IntegrateHeightFogRayMarch(float3 rayDir, float rayStart, float rayEnd, float jitter)
+float IntegrateHeightFog(float3 rayDir, float rayStart, float rayEnd)
 {
     if (rayEnd <= rayStart)
     {
         return 0.0f;
     }
 
-    const uint stepCount = 24;
-    const float rayLength = rayEnd - rayStart;
-    const float stepSize = rayLength / stepCount;
+    const float lambda = max(gHeightFalloff, 1e-6f);
+    const float baseHeightOffset = gCameraPosW.y - gFogBaseHeight;
+    const float segmentLength = rayEnd - rayStart;
 
-    float transmittance = 1.0f;
-    float fogFactor = 0.0f;
-
-    [loop]
-    for (uint i = 0; i < stepCount; ++i)
+    if (abs(rayDir.y) < 1e-4f)
     {
-        const float stepT = rayStart + stepSize * (i + jitter);
-        const float sampleHeight = gCameraPosW.y + rayDir.y * stepT;
-        const float density = ComputeFogDensity(sampleHeight);
-        const float localTau = density * stepSize;
-        const float localTransmittance = exp(-localTau);
-        const float localFog = 1.0f - localTransmittance;
-
-        fogFactor += transmittance * localFog;
-        transmittance *= localTransmittance;
+        const float density = gDensity * exp(-lambda * (baseHeightOffset + rayDir.y * rayStart));
+        return density * segmentLength;
     }
 
-    return min(fogFactor, gMaxOpacity);
-}
+    const float y0 = baseHeightOffset + rayDir.y * rayStart;
+    const float y1 = baseHeightOffset + rayDir.y * rayEnd;
+    const float exp0 = exp(-lambda * y0);
+    const float exp1 = exp(-lambda * y1);
 
-float ComputeFogAtUv(float2 uv, float2 pixelCoord, float jitter)
-{
-    const float depth = gInputDepth.SampleLevel(gsamLinearClamp, uv, 0.0f);
-    const float3 farWorldPos = ReconstructWorldPosition(uv, 1.0f);
-    const float3 rayVector = farWorldPos - gCameraPosW;
-    const float rayVectorLength = max(length(rayVector), 1e-6f);
-    const float3 rayDir = rayVector / rayVectorLength;
-
-    float maxDistance = rayVectorLength;
-    if (depth < 1.0f - 1e-5f)
-    {
-        const float3 worldPos = ReconstructWorldPosition(uv, depth);
-        maxDistance = max(length(worldPos - gCameraPosW), 1e-3f);
-    }
-
-    const float rayStart = min(gStartDistance, maxDistance);
-    const float sampleJitter = frac(jitter + InterleavedGradientNoise(pixelCoord));
-
-    return saturate(IntegrateHeightFogRayMarch(rayDir, rayStart, maxDistance, sampleJitter));
+    return abs((gDensity / (lambda * rayDir.y)) * (exp0 - exp1));
 }
 
 [numthreads(32, 32, 1)]
@@ -123,28 +85,27 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
     }
 
-    const float2 pixelCoord = float2(dispatchThreadId.xy);
-    const float2 baseUv = (pixelCoord + 0.5f) * gResolution.zw;
+    const float2 uv = (float2(dispatchThreadId.xy) + 0.5f) * gResolution.zw;
+    const float depth = gInputDepth.Load(int3(dispatchThreadId.xy, 0));
 
-    const float2 subPixelOffsets[4] =
+    const float3 farWorldPos = ReconstructWorldPosition(uv, 1.0f);
+    const float3 rayVector = farWorldPos - gCameraPosW;
+    const float rayVectorLength = max(length(rayVector), 1e-6f);
+    const float3 rayDir = rayVector / rayVectorLength;
+
+    float maxDistance = rayVectorLength;
+    if (depth < 1.0f - 1e-5f)
     {
-        float2(-0.25f, -0.25f),
-        float2( 0.25f, -0.25f),
-        float2(-0.25f,  0.25f),
-        float2( 0.25f,  0.25f)
-    };
-
-    float fogMask = 0.0f;
-
-    [unroll]
-    for (uint sampleIndex = 0; sampleIndex < 4; ++sampleIndex)
-    {
-        const float2 sampleUv = saturate(baseUv + subPixelOffsets[sampleIndex] * gResolution.zw);
-        const float jitter = (sampleIndex + 0.5f) * 0.25f;
-        fogMask += ComputeFogAtUv(sampleUv, pixelCoord + subPixelOffsets[sampleIndex], jitter);
+        const float3 worldPos = ReconstructWorldPosition(uv, depth);
+        maxDistance = max(length(worldPos - gCameraPosW), 1e-3f);
     }
 
-    fogMask *= 0.25f;
+    const float rayStart = min(gStartDistance, maxDistance);
+    float tau = IntegrateHeightFog(rayDir, rayStart, maxDistance);
+    tau = clamp(tau, 0.0f, 50.0f);
+
+    const float transmittance = exp(-tau);
+    const float fogMask = min(1.0f - transmittance, gMaxOpacity);
 
     gFogOutput[dispatchThreadId.xy] = saturate(fogMask);
 }

@@ -72,6 +72,7 @@ protected:
     void UpdateMainPassCB(const GameTimer& gt);
     void UpdateSsaoCB(const GameTimer& gt) const;
     void UpdateFogCB(const GameTimer& gt) const;
+    void UpdateVolumeCB(const GameTimer& gt) const;
     bool InitMainWindow() override;
     void OnResize() override;
     void Flush() override;
@@ -103,7 +104,7 @@ protected:
 
     bool IsUsingSharedSSAO = false;
     bool IsUseHBAO = false;
-    bool IsUseFog = true;
+    bool IsUseFog = false;
     bool IsUsingSharedFog = true;
     
     UINT pathMapShow = 0;

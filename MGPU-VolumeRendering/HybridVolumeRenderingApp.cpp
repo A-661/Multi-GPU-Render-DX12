@@ -111,6 +111,7 @@ void HybridVolumeRenderingApp::Update(const GameTimer& gt)
     UpdateShadowPassCB(gt);
     UpdateSsaoCB(gt);
     UpdateFogCB(gt);
+    UpdateVolumeCB(gt);
     UIPath->Update();
     benchmark.Tick(gt.DeltaTime());
 }
@@ -350,6 +351,27 @@ void HybridVolumeRenderingApp::PopulateForwardPathCommands(const std::shared_ptr
         cmdList->SetPipelineState(*defaultPrimePipelineResources.GetPSO(RenderMode::OpaqueAlphaDrop));
         PopulateDrawCommands(cmdList, (RenderMode::OpaqueAlphaDrop));
 
+        const SSAOResources* volumeDepthResources = nullptr;
+        if (IsUseHBAO)
+        {
+            volumeDepthResources =
+                &hbaoPass->GetPrimeResources();
+        }
+        else
+        {
+            volumeDepthResources =
+                &ssaoPass->GetPrimeResources();
+        }
+
+        cmdList->TransitionBarrier(volumeDepthResources->GetDepthMap(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+        cmdList->FlushResourceBarriers();
+        cmdList->SetRootConstantBufferView(StandardShaderSlot::VolumeData, *currentFrameResource->PrimeVolumeConstantUploadBuffer);
+        cmdList->SetRootDescriptorTable( StandardShaderSlot::VolumeDepthMap, volumeDepthResources->GetDepthMapSRV());
+        cmdList->SetPipelineState(*defaultPrimePipelineResources.GetPSO(RenderMode::Volume));
+        
+        PopulateDrawCommands(cmdList, RenderMode::Volume);
+        
         cmdList->SetPipelineState(*defaultPrimePipelineResources.GetPSO(RenderMode::Transparent));
         PopulateDrawCommands(cmdList, (RenderMode::Transparent));
 
@@ -709,6 +731,13 @@ void HybridVolumeRenderingApp::InitRootSignature()
                      assets->GetLoadTexturesCount() > 0 ? assets->GetLoadTexturesCount() : 1,
                      StandardShaderSlot::TexturesMap - 3, 0);
 
+    CD3DX12_DESCRIPTOR_RANGE volumeDepthParam;
+    volumeDepthParam.Init(
+    D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+    1,
+    0,
+    2       // space2
+    );
 
     rootSignature->AddConstantBufferParameter(0);
     rootSignature->AddConstantBufferParameter(1);
@@ -717,6 +746,8 @@ void HybridVolumeRenderingApp::InitRootSignature()
     rootSignature->AddDescriptorParameter(&texParam[1], 1, D3D12_SHADER_VISIBILITY_PIXEL);
     rootSignature->AddDescriptorParameter(&texParam[2], 1, D3D12_SHADER_VISIBILITY_PIXEL);
     rootSignature->AddDescriptorParameter(&texParam[3], 1, D3D12_SHADER_VISIBILITY_PIXEL);
+    rootSignature->AddConstantBufferParameter(2, 0, D3D12_SHADER_VISIBILITY_PIXEL);
+    rootSignature->AddDescriptorParameter(&volumeDepthParam, 1, D3D12_SHADER_VISIBILITY_PIXEL);
     rootSignature->Initialize(primeDevice);
 
     primeDeviceSignature = rootSignature;
@@ -1069,7 +1100,15 @@ void HybridVolumeRenderingApp::CreateGO()
     light->Strength({0.8f, 0.8f, 0.8f});
     sun1->AddComponent(light);
     gameObjects.push_back(std::move(sun1));
-
+    
+    auto volume = std::make_unique<GameObject>("Volume");
+    volume->GetTransform()->SetPosition(Vector3(0.0f, 50.0f, 0.0f));
+    volume->GetTransform()->SetScale(Vector3(100.0f, 50.0f, 100.0f));
+    auto renderer = std::make_shared<ModelRenderer>(primeDevice, models[L"volumeBox"]);
+    volume->AddComponent(renderer);
+    typedRenderer[static_cast<int>(RenderMode::Volume)].push_back(renderer);
+    gameObjects.push_back(std::move(volume));
+    
     for (int i = 0; i < 11; ++i)
     {
         auto nano = std::make_unique<GameObject>();
@@ -1127,7 +1166,7 @@ void HybridVolumeRenderingApp::CreateGO()
     platform->SetScale(0.2);
     platform->GetTransform()->SetEulerRotate(Vector3(90, 90, 0));
     platform->GetTransform()->SetPosition(Vector3::Backward * -130);
-    auto renderer = std::make_shared<ModelRenderer>(primeDevice, models[L"platform"]);
+    renderer = std::make_shared<ModelRenderer>(primeDevice, models[L"platform"]);
     platform->AddComponent(renderer);
     typedRenderer[static_cast<int>(RenderMode::Opaque)].push_back(renderer);
 
@@ -1496,6 +1535,27 @@ void HybridVolumeRenderingApp::UpdateFogCB(const GameTimer& gt) const
 
     currentFrameResource->PrimeFogConstantUploadBuffer->CopyData(0, fogCB);
     currentFrameResource->SecondFogConstantUploadBuffer->CopyData(0, fogCB);
+}
+
+void HybridVolumeRenderingApp::UpdateVolumeCB(const GameTimer& gt) const
+{
+    (void)gt;
+
+    VolumeConstants volumeCB = {};
+    volumeCB.BoxMinW = Vector3(-50.0f, 25.0f, -50.0f);
+    volumeCB.BoxMaxW = Vector3(50.0f, 75.0f, 50.0f);
+    volumeCB.Density = 0.02f;
+    volumeCB.StepSize = 1.0f;
+    volumeCB.Color = Vector3(0.72f, 0.78f, 0.86f);
+    volumeCB.MaxOpacity = 0.95f;
+    volumeCB.Resolution = Vector2(
+        static_cast<float>(MainWindow->GetClientWidth()),
+        static_cast<float>(MainWindow->GetClientHeight()));
+    volumeCB.InvResolution = Vector2(
+        1.0f / volumeCB.Resolution.x,
+        1.0f / volumeCB.Resolution.y);
+
+    currentFrameResource->PrimeVolumeConstantUploadBuffer->CopyData(0, volumeCB);
 }
 
 bool HybridVolumeRenderingApp::InitMainWindow()

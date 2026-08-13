@@ -26,6 +26,9 @@ FrameResource::FrameResource(std::shared_ptr<GDevice> primeDevices, std::shared_
     SecondFogConstantUploadBuffer = (std::make_shared<ConstantUploadBuffer<FogConstants>>(
         secondDevice, 1, secondDevice->GetName() + L" Fog Path Data Buffer"));
 
+    PrimeVolumeConstantUploadBuffer = (std::make_shared<ConstantUploadBuffer<VolumeConstants>>(
+        primeDevices, 1, primeDevices->GetName() + L" Volume Path Data Buffer"));
+
     MaterialBuffer = std::make_shared<StructuredUploadBuffer<MaterialConstants>>(
         primeDevices, materialCount, primeDevices->GetName() + L" Material Data Buffer ");
 

@@ -102,6 +102,28 @@ void RenderModeFactory::LoadDefaultPSO(std::shared_ptr<GDevice> device, std::sha
     rasterizedDesc.CullMode = D3D12_CULL_MODE_NONE;
     skyBoxPSO->SetRasterizationState(rasterizedDesc);
 
+    auto volumePSO = std::make_shared<GraphicPSO>(RenderMode::Volume);
+    volumePSO->SetPsoDesc(basePsoDesc);
+    volumePSO->SetShader(shaders["VolumeVS"].get());
+    volumePSO->SetShader(shaders["VolumePS"].get());
+    rasterizedDesc = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+    rasterizedDesc.CullMode = D3D12_CULL_MODE_FRONT;
+    volumePSO->SetRasterizationState(rasterizedDesc);
+    depthStencilDesc.DepthEnable = false;
+    depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+    volumePSO->SetDepthStencilState(depthStencilDesc);
+    D3D12_RENDER_TARGET_BLEND_DESC volumeBlendDesc = {};
+    volumeBlendDesc.BlendEnable = true;
+    volumeBlendDesc.LogicOpEnable = false;
+    volumeBlendDesc.SrcBlend = D3D12_BLEND_ONE;
+    volumeBlendDesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+    volumeBlendDesc.BlendOp = D3D12_BLEND_OP_ADD;
+    volumeBlendDesc.SrcBlendAlpha = D3D12_BLEND_ONE;
+    volumeBlendDesc.DestBlendAlpha = D3D12_BLEND_INV_SRC_ALPHA;
+    volumeBlendDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+    volumeBlendDesc.LogicOp = D3D12_LOGIC_OP_NOOP;
+    volumeBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+    volumePSO->SetRenderTargetBlendState(0, volumeBlendDesc);
 
     auto transperentPSO = std::make_shared<GraphicPSO>(RenderMode::Transparent);
     transperentPSO->SetPsoDesc(basePsoDesc);
@@ -198,6 +220,7 @@ void RenderModeFactory::LoadDefaultPSO(std::shared_ptr<GDevice> device, std::sha
     }
 
     PSO[opaquePSO->GetRenderMode()] = std::move(opaquePSO);
+    PSO[volumePSO->GetRenderMode()] = std::move(volumePSO);
     PSO[transperentPSO->GetRenderMode()] = std::move(transperentPSO);
     PSO[alphaDropPso->GetRenderMode()] = std::move(alphaDropPso);
     PSO[skyBoxPSO->GetRenderMode()] = std::move(skyBoxPSO);
@@ -286,6 +309,9 @@ void RenderModeFactory::LoadDefaultShaders()
     shaders["noisePS"] = std::move(
         std::make_shared<GShader>(L"Shaders\\NoiseDraw.hlsl", PixelShader, nullptr, "PS", "ps_5_1"));
 
+    shaders["VolumeVS"] = std::make_shared<GShader>(L"Shaders\\Volume.hlsl", VertexShader, nullptr, "VS", "vs_5_1");
+    shaders["VolumePS"] = std::make_shared<GShader>( L"Shaders\\Volume.hlsl", PixelShader, nullptr, "PS", "ps_5_1");
+    
     for (auto&& pair : shaders)
     {
         pair.second->LoadAndCompile();

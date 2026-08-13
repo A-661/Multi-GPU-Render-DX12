@@ -61,6 +61,15 @@ std::shared_ptr<GModel>& AssetsLoader::GenerateQuad(const std::shared_ptr<GComma
     return modelMap[L"quad"];
 }
 
+std::shared_ptr<GModel>& AssetsLoader::GenerateBox(const std::shared_ptr<GCommandList>& cmdList, float width, float height, float depth)
+{
+    const auto box = geoGen.CreateBox(width, height, depth, 0);
+
+    auto model = CreateModelFromGenerated(cmdList, box, L"volumeBox");
+    modelMap.emplace(L"volumeBox", model);
+    return modelMap[L"volumeBox"];
+}
+
 static void GetData(const aiMesh* mesh, std::vector<Vertex>& OutVertices, std::vector<DWORD>& OutIndices)
 {
     //Get vertices

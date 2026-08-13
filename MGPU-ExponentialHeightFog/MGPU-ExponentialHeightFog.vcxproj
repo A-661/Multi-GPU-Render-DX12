@@ -160,24 +160,6 @@
     <ClCompile Include="..\Submodule\imgui\imgui_widgets.cpp" />
     <ClCompile Include="FrameResource.cpp" />
     <ClCompile Include="HybridEHFApp.cpp" />
-    <ClCompile Include="Shaders\CloudsNoiseCS.hlsl" />
-    <ClCompile Include="Shaders\Common.hlsl" />
-    <ClCompile Include="Shaders\ComputeParticle.hlsl" />
-    <ClCompile Include="Shaders\Default.hlsl" />
-    <ClCompile Include="Shaders\DrawNormals.hlsl" />
-    <ClCompile Include="Shaders\ExponentialHeightFog.hlsl" />
-    <ClCompile Include="Shaders\HBAO.hlsl" />
-    <ClCompile Include="Shaders\LightingUtil.hlsl" />
-    <ClCompile Include="Shaders\MipMapCS.hlsl" />
-    <ClCompile Include="Shaders\NoiseDraw.hlsl" />
-    <ClCompile Include="Shaders\ParticleCommon.hlsl" />
-    <ClCompile Include="Shaders\ParticleDraw.hlsl" />
-    <ClCompile Include="Shaders\Quad.hlsl" />
-    <ClCompile Include="Shaders\Shadows.hlsl" />
-    <ClCompile Include="Shaders\SkyBoxShader.hlsl" />
-    <ClCompile Include="Shaders\Ssao.hlsl" />
-    <ClCompile Include="Shaders\SsaoBlur.hlsl" />
-    <ClCompile Include="Shaders\TreeSprite.hlsl" />
     <ClCompile Include="SharedFog.cpp" />
     <ClCompile Include="SharedHBAO.cpp" />
     <ClCompile Include="SharedSSAO.cpp" />
@@ -217,6 +199,24 @@
     <ClInclude Include="UILayer.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Shaders\CloudsNoiseCS.hlsl" />
+    <None Include="Shaders\Common.hlsl" />
+    <None Include="Shaders\ComputeParticle.hlsl" />
+    <None Include="Shaders\Default.hlsl" />
+    <None Include="Shaders\DrawNormals.hlsl" />
+    <None Include="Shaders\ExponentialHeightFog.hlsl" />
+    <None Include="Shaders\HBAO.hlsl" />
+    <None Include="Shaders\LightingUtil.hlsl" />
+    <None Include="Shaders\MipMapCS.hlsl" />
+    <None Include="Shaders\NoiseDraw.hlsl" />
+    <None Include="Shaders\ParticleCommon.hlsl" />
+    <None Include="Shaders\ParticleDraw.hlsl" />
+    <None Include="Shaders\Quad.hlsl" />
+    <None Include="Shaders\Shadows.hlsl" />
+    <None Include="Shaders\SkyBoxShader.hlsl" />
+    <None Include="Shaders\Ssao.hlsl" />
+    <None Include="Shaders\SsaoBlur.hlsl" />
+    <None Include="Shaders\TreeSprite.hlsl" />
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -43,7 +43,7 @@ protected:
     void PopulateNormalMapCommands(const std::shared_ptr<GCommandList>& cmdList);
     void PopulateAmbientMapCommands(const std::shared_ptr<GCommandList>& cmdList) const;
     void PopulateFogMapCommands(const std::shared_ptr<GCommandList>& cmdList) const;
-    void PopulateVolumeMapCommands(const std::shared_ptr<GCommandList>& cmdList) const;
+    void PopulateVolumeMapCommands(const std::shared_ptr<GCommandList>& cmdList);
     void PopulateForwardPathCommands(const std::shared_ptr<GCommandList>& cmdList);
     void PopulateDrawCommands(const std::shared_ptr<GCommandList>& cmdList,
                               RenderMode type) const;
@@ -63,6 +63,7 @@ protected:
     void CreateMaterials();
     void InitSRVMemoryAndMaterials();
     void InitRenderPaths();
+    void InitVolumeAsyncSlots();
     void LoadStudyTexture();
     void LoadModels();
     void MipMasGenerate();
@@ -75,7 +76,7 @@ protected:
     void UpdateMainPassCB(const GameTimer& gt);
     void UpdateSsaoCB(const GameTimer& gt) const;
     void UpdateFogCB(const GameTimer& gt) const;
-    void UpdateVolumeCB(const GameTimer& gt) const;
+    void UpdateVolumeCB(const GameTimer& gt);
     bool InitMainWindow() override;
     void OnResize() override;
     void Flush() override;
@@ -162,4 +163,46 @@ protected:
     Matrix RotaterSaveMatrix;
     Matrix CameraSaveMatrix;
     std::vector<ParticleEmitter*> emitters;
+    
+    
+    PassConstants currentVolumePassConstants = {};
+    VolumeConstants currentVolumeConstants = {};
+    ObjectConstants currentVolumeObjectConstants = {};
+    
+    enum class VolumeSlotState
+    {
+        Free,
+        DepthPending,
+        GPU2Working,
+        ResultReady,
+        ReadbackPending
+    };
+
+    struct VolumeAsyncSlot
+    {
+        VolumeSlotState State = VolumeSlotState::Free;
+
+        UINT64 PrimeFence = 0;
+        UINT64 SecondFence = 0;
+
+        UINT64 FrameId = 0;
+
+        std::shared_ptr<ConstantUploadBuffer<PassConstants>>
+            PassConstantUploadBuffer;
+
+        std::shared_ptr<ConstantUploadBuffer<VolumeConstants>>
+            VolumeConstantUploadBuffer;
+
+        std::shared_ptr<ConstantUploadBuffer<ObjectConstants>>
+            ObjectConstantUploadBuffer;
+    };
+
+    std::array<VolumeAsyncSlot, 2> volumeSlots;
+
+    UINT64 volumeFrameId = 1;
+    UINT64 latestPresentedVolumeFrameId = 0;
+    int volumeWriteSlot = 0;
+
+    int volumePendingDepthSlot = -1;
+    int volumePendingReadbackSlot = -1;
 };

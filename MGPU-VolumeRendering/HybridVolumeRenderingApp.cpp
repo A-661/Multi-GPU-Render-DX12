@@ -83,15 +83,11 @@ void HybridVolumeRenderingApp::Update(const GameTimer& gt)
         secondQueue->WaitForFenceValue(currentFrameResource->SecondRenderFenceValue);
     }
 
-    const UINT64 secondReleaseFence =
-    std::max(
-        std::max(
-            currentFrameResource->SecondRenderFenceValue,
-            currentFrameResource->SecondFogFenceValue),
-        currentFrameResource->SecondVolumeFenceValue);
-    if (secondReleaseFence != 0)
+    const UINT64 completedSecondFence = secondQueue->GetFence()->GetCompletedValue();
+
+    if (completedSecondFence != 0)
     {
-        secondDevice->ReleaseSlateDescriptors(secondReleaseFence);
+        secondDevice->ReleaseSlateDescriptors(completedSecondFence);
     }
 
     mLightRotationAngle += 0.1f * gt.DeltaTime();
@@ -313,10 +309,8 @@ void HybridVolumeRenderingApp::PopulateFogMapCommands(const std::shared_ptr<GCom
 }
 
 void HybridVolumeRenderingApp::PopulateVolumeMapCommands(
-    const std::shared_ptr<GCommandList>& cmdList) const
+    const std::shared_ptr<GCommandList>& cmdList)
 {
-    (void)cmdList;
-    
     if (!IsUsingSharedVolume)
     {
         return;
@@ -344,92 +338,205 @@ void HybridVolumeRenderingApp::PopulateVolumeMapCommands(
     const auto& primeResources =
         volumePass->GetPrimeResources();
 
+    const auto& secondResources =
+        volumePass->GetSecondResources();
+
     const auto& crossResources =
         volumePass->GetCrossResources();
+
+
+    const auto primeQueue =
+        primeDevice->GetCommandQueue();
+
+    const auto secondQueue =
+        secondDevice->GetCommandQueue();
+    
+    // release slots whose readback on GPU0 has finished
+    for (auto& slot : volumeSlots)
+    {
+        if (
+            slot.State == VolumeSlotState::ReadbackPending
+            &&
+            primeQueue->IsFinish(slot.PrimeFence))
+        {
+            slot.State =
+                VolumeSlotState::Free;
+        }
+    }
+
+
+    // check completed GPU2 jobs
+    for (auto& slot : volumeSlots)
+    {
+        if (slot.State == VolumeSlotState::GPU2Working
+            &&
+            secondQueue->IsFinish(slot.SecondFence))
+        {
+            slot.State = VolumeSlotState::ResultReady;
+        }
+    }
 
 
     // ========================================================
     // GPU0
     //
-    // New depth:
-    // GPU0 -> cross adapter
+    // Read latest completed GPU2 result.
     //
-    // Previous GPU2 volume result:
-    // cross adapter -> GPU0
+    // NO WAIT.
+    // If GPU2 has no completed result, prime VolumeMap simply
+    // keeps the previously received frame.
     // ========================================================
 
-    cmdList->CopyResource(
-        crossResources
-        .GetDepthMap()
-        .GetPrimeResource(),
+    int latestReadySlot = -1;
 
-        depthSource);
+    UINT64 latestReadyFrameId = latestPresentedVolumeFrameId;
 
 
-    cmdList->CopyResource(
-        primeResources.GetVolumeMap(),
-
-        crossResources
-        .GetVolumeMap()
-        .GetPrimeResource());
-
-
-
-    // GPU1
-    const auto secondQueue =
-        secondDevice->GetCommandQueue();
-
-
-    if (
-        currentFrameResource->SecondVolumeFenceValue == 0
-        ||
-        secondQueue->IsFinish(
-            currentFrameResource->SecondVolumeFenceValue))
+    for (UINT i = 0; i < volumeSlots.size(); ++i)
     {
-        const auto& secondResources =
-            volumePass->GetSecondResources();
+        const auto& slot = volumeSlots[i];
+
+        if (slot.State == VolumeSlotState::ResultReady
+            &&
+            slot.FrameId > latestReadyFrameId)
+        {
+            latestReadyFrameId = slot.FrameId;
+            latestReadySlot = static_cast<int>(i);
+        }
+    }
+
+
+    if (latestReadySlot >= 0)
+    {
+        // discard completed but older results
+        for (UINT i = 0; i < volumeSlots.size(); ++i)
+        {
+            auto& slot = volumeSlots[i];
+
+            if (slot.State == VolumeSlotState::ResultReady
+                &&
+                static_cast<int>(i) != latestReadySlot)
+            {
+                slot.State = VolumeSlotState::Free;
+            }
+        }
+        
+        auto& slot = volumeSlots[latestReadySlot];
+        
+        cmdList->CopyResource(primeResources.GetVolumeMap(),
+            crossResources.GetVolumeMap(latestReadySlot).GetPrimeResource());
+
+        slot.State = VolumeSlotState::ReadbackPending;
+
+        volumePendingReadbackSlot = latestReadySlot;
+
+
+        latestPresentedVolumeFrameId = slot.FrameId;
+    }
+    else
+    {
+        // Any result older than the one already displayed
+        // is no longer useful.
+        for (auto& slot : volumeSlots)
+        {
+            if (slot.State == VolumeSlotState::ResultReady
+                &&
+                slot.FrameId <= latestPresentedVolumeFrameId)
+            {
+                slot.State = VolumeSlotState::Free;
+            }
+        }
+    }
+
+
+    // ========================================================
+    // GPU1
+    //
+    // Start rendering a depth slot only when GPU0 has finished
+    // writing that depth.
+    //
+    // Again: no waiting.
+    // ========================================================
+
+    for (UINT i = 0; i < volumeSlots.size(); ++i)
+    {
+        auto& slot = volumeSlots[i];
+
+        if (slot.State != VolumeSlotState::DepthPending
+            ||
+            !primeQueue->IsFinish(slot.PrimeFence))
+        {
+            continue;
+        }
+
 
         const auto secondCmdList =
             secondQueue->GetCommandList();
 
 
         // cross depth -> local GPU2 depth
-        secondCmdList->CopyResource(
-            secondResources.GetDepthMap(),
-
-            crossResources
-            .GetDepthMap()
-            .GetSharedResource());
-
+        secondCmdList->CopyResource(secondResources.GetDepthMap(),
+            crossResources.GetDepthMap(i).GetSharedResource());
 
         // render actual volume on GPU2
         volumePass->Render(
             secondCmdList,
-
-            currentFrameResource
-            ->SecondVolumeObjectConstantUploadBuffer,
-
-            currentFrameResource
-            ->SecondPassConstantUploadBuffer,
-
-            currentFrameResource
-            ->SecondVolumeConstantUploadBuffer,
-
+            slot.ObjectConstantUploadBuffer,
+            slot.PassConstantUploadBuffer,
+            slot.VolumeConstantUploadBuffer,
             secondResources);
 
-
         // GPU2 VolumeMap -> cross adapter
-        secondCmdList->CopyResource(
+        secondCmdList->CopyResource(crossResources.GetVolumeMap(i).GetSharedResource(), secondResources.GetVolumeMap());
+        
+        slot.SecondFence = secondQueue->ExecuteCommandList(secondCmdList);
+        currentFrameResource->SecondVolumeFenceValue = slot.SecondFence;
+        slot.State = VolumeSlotState::GPU2Working;
+        
+        break;
+    }
+
+
+    // ========================================================
+    // GPU0
+    //
+    // Send current frame depth into any free cross-adapter slot.
+    //
+    // If both slots are busy, do nothing.
+    // GPU0 NEVER waits for GPU2.
+    // ========================================================
+
+    for (UINT attempt = 0; attempt < volumeSlots.size(); ++attempt)
+    {
+        const UINT i = (volumeWriteSlot + attempt) % volumeSlots.size();
+        auto& slot = volumeSlots[i];
+
+
+        if (slot.State != VolumeSlotState::Free)
+        {
+            continue;
+        }
+
+        slot.PassConstantUploadBuffer->CopyData(0, currentVolumePassConstants);
+
+        slot.VolumeConstantUploadBuffer->CopyData(0, currentVolumeConstants);
+
+        slot.ObjectConstantUploadBuffer->CopyData(0, currentVolumeObjectConstants);
+
+        slot.FrameId = volumeFrameId++;
+
+        cmdList->CopyResource(
             crossResources
-            .GetVolumeMap()
-            .GetSharedResource(),
+            .GetDepthMap(i)
+            .GetPrimeResource(),
 
-            secondResources.GetVolumeMap());
+            depthSource);
 
 
-        currentFrameResource->SecondVolumeFenceValue =
-            secondQueue->ExecuteCommandList(
-                secondCmdList);
+        slot.State = VolumeSlotState::DepthPending;
+        volumePendingDepthSlot = static_cast<int>(i);
+        volumeWriteSlot = static_cast<int>((i + 1) % volumeSlots.size());
+        break;
     }
 }
 
@@ -476,6 +583,63 @@ void HybridVolumeRenderingApp::PopulateForwardPathCommands(const std::shared_ptr
         cmdList->SetPipelineState(*defaultPrimePipelineResources.GetPSO(RenderMode::OpaqueAlphaDrop));
         PopulateDrawCommands(cmdList, (RenderMode::OpaqueAlphaDrop));
 
+        if (IsUsingSharedVolume)
+        {
+        // VolumeMap proccessed on GPU2 in PopulateVolumeMapCommands() and returned to GPU0.
+        // blending /w forward render target.
+
+        volumePass->Composite(
+            cmdList,
+            antiAliasingPrimePath->GetRenderTarget(),
+            antiAliasingPrimePath->GetRTV());
+                
+        cmdList->SetGraphicsRootSignature(*primeDeviceSignature);
+
+        cmdList->SetDescriptorsHeap(&srvTexturesMemory);
+
+        cmdList->SetViewports(&antiAliasingPrimePath->GetViewPort(),
+            1);
+
+        cmdList->SetScissorRects(&antiAliasingPrimePath->GetRect(),
+            1);
+
+        cmdList->SetRenderTargets(1,
+            antiAliasingPrimePath->GetRTV(),
+            0,
+            antiAliasingPrimePath->GetDSV());
+
+
+        // Material data.
+        cmdList->SetRootShaderResourceView(StandardShaderSlot::MaterialData,
+            *currentFrameResource->MaterialBuffer);
+
+        // Material textures.
+        cmdList->SetRootDescriptorTable(StandardShaderSlot::TexturesMap,
+            &srvTexturesMemory);
+
+        // Camera/pass data.
+        cmdList->SetRootConstantBufferView(StandardShaderSlot::CameraData,
+            *currentFrameResource->PrimePassConstantUploadBuffer);
+
+        // Shadow map.
+        cmdList->SetRootDescriptorTable(StandardShaderSlot::ShadowMap,
+            shadowPath->GetSrv());
+
+        // AO map.
+        if (IsUseHBAO)
+        {
+            cmdList->SetRootDescriptorTable(StandardShaderSlot::AmbientMap,
+                hbaoPass->GetPrimeResources().GetAmbientMapSRV());
+        }
+        else
+        {
+            cmdList->SetRootDescriptorTable(StandardShaderSlot::AmbientMap,
+                ssaoPass->GetPrimeResources().GetAmbientMapSRV());
+        }
+        }
+        else
+        {
+        // SINGLE GPU
         const SSAOResources* volumeDepthResources = nullptr;
         if (IsUseHBAO)
         {
@@ -496,6 +660,7 @@ void HybridVolumeRenderingApp::PopulateForwardPathCommands(const std::shared_ptr
         cmdList->SetPipelineState(*defaultPrimePipelineResources.GetPSO(RenderMode::Volume));
         
         PopulateDrawCommands(cmdList, RenderMode::Volume);
+        }
         
         cmdList->SetPipelineState(*defaultPrimePipelineResources.GetPSO(RenderMode::Transparent));
         PopulateDrawCommands(cmdList, (RenderMode::Transparent));
@@ -588,7 +753,6 @@ void HybridVolumeRenderingApp::Draw(const GameTimer& gt)
     PopulateNormalMapCommands(primeCmdList);
     PopulateAmbientMapCommands(primeCmdList);
     PopulateFogMapCommands(primeCmdList);
-    // Volume pass disabled: it was causing excessive resource allocation.
     PopulateVolumeMapCommands(primeCmdList);
     PopulateShadowMapCommands(primeCmdList);
     PopulateForwardPathCommands(primeCmdList);
@@ -618,6 +782,23 @@ void HybridVolumeRenderingApp::Draw(const GameTimer& gt)
     primeCmdList->FlushResourceBarriers();
     currentFrameResource->PrimeRenderFenceValue = primeRenderQueue->ExecuteCommandList(primeCmdList);
 
+    const UINT64 primeFence =
+    currentFrameResource->PrimeRenderFenceValue;
+
+
+    if (volumePendingDepthSlot >= 0)
+    {
+        volumeSlots[volumePendingDepthSlot].PrimeFence = primeFence;
+        volumePendingDepthSlot = -1;
+    }
+
+
+    if (volumePendingReadbackSlot >= 0)
+    {
+        volumeSlots[volumePendingReadbackSlot].PrimeFence = primeFence;
+        volumePendingReadbackSlot = -1;
+    }
+    
     currentFrameResourceIndex = MainWindow->Present();
 }
 
@@ -634,6 +815,7 @@ bool HybridVolumeRenderingApp::Initialize()
 
     InitInputLayout();
     InitRenderPaths();
+    InitVolumeAsyncSlots();
     InitSRVMemoryAndMaterials();
     InitRootSignature();
     InitPipeLineResource();
@@ -1001,6 +1183,16 @@ void HybridVolumeRenderingApp::InitRenderPaths()
     commandQueue->Flush();
 
     debugLogger.PushMessage(std::wstring(L"\nInit Render path data for " + primeDevice->GetName()));
+}
+
+void HybridVolumeRenderingApp::InitVolumeAsyncSlots()
+{
+    for (UINT i = 0; i < volumeSlots.size(); ++i)
+    {
+        volumeSlots[i].PassConstantUploadBuffer = std::make_shared<ConstantUploadBuffer<PassConstants>>(secondDevice,1,secondDevice->GetName() + L" Volume Slot Pass Data Buffer " + std::to_wstring(i));
+        volumeSlots[i].VolumeConstantUploadBuffer = std::make_shared<ConstantUploadBuffer<VolumeConstants>>(secondDevice,1,secondDevice->GetName() + L" Volume Slot Data Buffer " + std::to_wstring(i));
+        volumeSlots[i].ObjectConstantUploadBuffer = std::make_shared<ConstantUploadBuffer<ObjectConstants>>(secondDevice,1,secondDevice->GetName() + L" Volume Slot Object Data Buffer " + std::to_wstring(i));
+    }
 }
 
 void HybridVolumeRenderingApp::LoadStudyTexture()
@@ -1590,6 +1782,8 @@ void HybridVolumeRenderingApp::UpdateMainPassCB(const GameTimer& gt)
     mainPassCB.Lights[1].Strength = Vector3{0.4f, 0.4f, 0.4f};
     mainPassCB.Lights[2].Direction = mRotatedLightDirections[2];
     mainPassCB.Lights[2].Strength = Vector3{0.2f, 0.2f, 0.2f};
+    
+    currentVolumePassConstants = mainPassCB;
 
     auto currentPassCB = currentFrameResource->PrimePassConstantUploadBuffer;
     currentPassCB->CopyData(0, mainPassCB);
@@ -1680,7 +1874,7 @@ void HybridVolumeRenderingApp::UpdateFogCB(const GameTimer& gt) const
     currentFrameResource->SecondFogConstantUploadBuffer->CopyData(0, fogCB);
 }
 
-void HybridVolumeRenderingApp::UpdateVolumeCB(const GameTimer& gt) const
+void HybridVolumeRenderingApp::UpdateVolumeCB(const GameTimer& gt)
 {
     (void)gt;
 
@@ -1697,9 +1891,17 @@ void HybridVolumeRenderingApp::UpdateVolumeCB(const GameTimer& gt) const
     volumeCB.InvResolution = Vector2(
         1.0f / volumeCB.Resolution.x,
         1.0f / volumeCB.Resolution.y);
+    
+    currentVolumeConstants = volumeCB;
 
-    currentFrameResource->PrimeVolumeConstantUploadBuffer->CopyData(0, volumeCB);
-    currentFrameResource->SecondVolumeConstantUploadBuffer->CopyData(0, volumeCB);
+    VolumeConstants primeVolumeCB = volumeCB;
+    primeVolumeCB.Color = Vector3(0.0f, 1.0f, 0.0f); // GREEN
+
+    VolumeConstants secondVolumeCB = volumeCB;
+    secondVolumeCB.Color = Vector3(1.0f, 0.0f, 1.0f); // MAGENTA
+
+    currentFrameResource->PrimeVolumeConstantUploadBuffer->CopyData(0, primeVolumeCB);
+    currentFrameResource->SecondVolumeConstantUploadBuffer->CopyData(0, secondVolumeCB);
     ObjectConstants objectCB = {};
 
     objectCB.World =
@@ -1713,6 +1915,8 @@ void HybridVolumeRenderingApp::UpdateVolumeCB(const GameTimer& gt) const
         ->GetTransform()
         ->TextureTransform
         .Transpose();
+    
+    currentVolumeObjectConstants = objectCB;
 
     currentFrameResource
         ->SecondVolumeObjectConstantUploadBuffer

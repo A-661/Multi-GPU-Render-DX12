@@ -954,38 +954,38 @@ void VolumeCrossResources::Initialize(
         L"VolumeCrossResources::Initialize before creating sharedDepthMap",
         depthDesc);
 
-    sharedDepthMap =
-        std::make_shared<GCrossAdapterResource>(
-            depthDesc,
-
-            primeDevice,
-            secondDevice,
-
-            L"Cross Adapter Volume Depth Map");
-
-    SharedVolumeDebugCheckpoint(
-        L"VolumeCrossResources::Initialize after creating sharedDepthMap");
-
     auto volumeDesc =
         resources
         .GetVolumeMap()
         .GetD3D12ResourceDesc();
 
     SharedVolumeDebugResourceDesc(
-        L"VolumeCrossResources::Initialize before creating sharedVolumeMap",
+        L"VolumeCrossResources::Initialize volumeDesc",
         volumeDesc);
 
-    sharedVolumeMap =
-        std::make_shared<GCrossAdapterResource>(
-            volumeDesc,
 
-            primeDevice,
-            secondDevice,
+    for (UINT i = 0; i < SlotCount; ++i)
+    {
+        const std::wstring depthName = L"Cross Adapter Volume Depth Map " + std::to_wstring(i);
+        const std::wstring volumeName = L"Cross Adapter Volume Map " + std::to_wstring(i);
+        
+        SharedVolumeDebugCheckpoint(L"VolumeCrossResources::Initialize before creating sharedDepthMap");
 
-            L"Cross Adapter Volume Map");
+        sharedDepthMaps[i] = std::make_shared<GCrossAdapterResource>(depthDesc, primeDevice, secondDevice, depthName);
 
-    SharedVolumeDebugCheckpoint(
-        L"VolumeCrossResources::Initialize after creating sharedVolumeMap");
+        SharedVolumeDebugCheckpoint(
+            L"VolumeCrossResources::Initialize after creating sharedDepthMap");
+
+
+        SharedVolumeDebugCheckpoint(
+            L"VolumeCrossResources::Initialize before creating sharedVolumeMap");
+
+        sharedVolumeMaps[i] = std::make_shared<GCrossAdapterResource>(volumeDesc, primeDevice, secondDevice, volumeName);
+
+        SharedVolumeDebugCheckpoint(
+            L"VolumeCrossResources::Initialize after creating sharedVolumeMap");
+    }
+
 
     SharedVolumeDebugCheckpoint(
         L"VolumeCrossResources::Initialize end");
@@ -996,13 +996,11 @@ void VolumeCrossResources::OnResize(
     const UINT width,
     const UINT height) const
 {
-    sharedDepthMap->Resize(
-        width,
-        height);
-
-    sharedVolumeMap->Resize(
-        width,
-        height);
+    for (UINT i = 0; i < SlotCount; ++i)
+    {
+        sharedDepthMaps[i]->Resize(width, height);
+        sharedVolumeMaps[i]->Resize(width, height);
+    }
 }
 
 

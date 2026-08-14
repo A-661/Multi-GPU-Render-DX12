@@ -119,8 +119,10 @@ private:
 
 class VolumeCrossResources final
 {
-    std::shared_ptr<GCrossAdapterResource> sharedDepthMap;
-    std::shared_ptr<GCrossAdapterResource> sharedVolumeMap;
+    static constexpr UINT SlotCount = 2;
+
+    std::array<std::shared_ptr<GCrossAdapterResource>, SlotCount> sharedDepthMaps;
+    std::array<std::shared_ptr<GCrossAdapterResource>, SlotCount> sharedVolumeMaps;
 
 public:
     void Initialize(
@@ -132,14 +134,14 @@ public:
         UINT width,
         UINT height) const;
 
-    const GCrossAdapterResource& GetDepthMap() const
+    const GCrossAdapterResource& GetDepthMap(const UINT index) const
     {
-        return *sharedDepthMap;
+        return *sharedDepthMaps[index];
     }
 
-    const GCrossAdapterResource& GetVolumeMap() const
+    const GCrossAdapterResource& GetVolumeMap(const UINT index) const
     {
-        return *sharedVolumeMap;
+        return *sharedVolumeMaps[index];
     }
 };
 

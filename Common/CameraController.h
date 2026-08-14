@@ -16,9 +16,11 @@ class CameraController :
 
     float xMouseSpeed = 100;
     float yMouseSpeed = 70;
+    float moveSpeedMultiplier = 1.0f;
 
 public:
     CameraController();
 
+    void SetMoveSpeedMultiplier(float multiplier);
     void Update() override;
 };

@@ -11,6 +11,11 @@ CameraController::CameraController()
     mouse = app.GetMouse();
 }
 
+void CameraController::SetMoveSpeedMultiplier(const float multiplier)
+{
+    moveSpeedMultiplier = multiplier;
+}
+
 void CameraController::Update()
 {
     while (!keyboard->CharBufferIsEmpty())
@@ -24,7 +29,7 @@ void CameraController::Update()
         unsigned char keycode = kbe.GetKeyCode();
     }
 
-    float cameraSpeed = 6.0f;
+    float cameraSpeed = 6.0f * moveSpeedMultiplier;
     float dt = Common::D3DApp::GetApp().GetTimer()->DeltaTime();
 
     auto tr = gameObject->GetTransform();

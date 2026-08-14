@@ -1,6 +1,7 @@
 #include "HybridVolumeRenderingApp.h"
 
 #include <array>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <valarray>
@@ -67,6 +68,7 @@ void HybridVolumeRenderingApp::Update(const GameTimer& gt)
 
     currentFrameResource = frameResources[currentFrameResourceIndex];
 
+    const auto primeWaitStart = std::chrono::high_resolution_clock::now();
     if (currentFrameResource->PrimeRenderFenceValue != 0 && !primeQueue->IsFinish(
         currentFrameResource->PrimeRenderFenceValue))
     {
@@ -76,18 +78,33 @@ void HybridVolumeRenderingApp::Update(const GameTimer& gt)
     {
         primeDevice->ReleaseSlateDescriptors(currentFrameResource->PrimeRenderFenceValue);
     }
+    const auto primeWaitEnd = std::chrono::high_resolution_clock::now();
+    debugPrimeWaitMs = std::chrono::duration<float, std::milli>(primeWaitEnd - primeWaitStart).count();
 
+    const auto secondWaitStart = std::chrono::high_resolution_clock::now();
     if (currentFrameResource->SecondRenderFenceValue != 0 && !secondQueue->IsFinish(
         currentFrameResource->SecondRenderFenceValue))
     {
         secondQueue->WaitForFenceValue(currentFrameResource->SecondRenderFenceValue);
     }
+    const auto secondWaitEnd = std::chrono::high_resolution_clock::now();
+    debugSecondWaitMs = std::chrono::duration<float, std::milli>(secondWaitEnd - secondWaitStart).count();
 
     const UINT64 completedSecondFence = secondQueue->GetFence()->GetCompletedValue();
 
     if (completedSecondFence != 0)
     {
         secondDevice->ReleaseSlateDescriptors(completedSecondFence);
+    }
+
+    for (auto& debugFrame : debugPrimaryFrames)
+    {
+        if (debugFrame.FenceValue != 0 && !debugFrame.Counted && primeQueue->IsFinish(debugFrame.FenceValue))
+        {
+            debugFrame.Counted = true;
+            debugPrimaryCompletedThisSecond++;
+            debugLatestCompletedPrimaryFrameId = std::max(debugLatestCompletedPrimaryFrameId, debugFrame.FrameId);
+        }
     }
 
     mLightRotationAngle += 0.1f * gt.DeltaTime();
@@ -114,6 +131,41 @@ void HybridVolumeRenderingApp::Update(const GameTimer& gt)
     UpdateVolumeCB(gt);
     UIPath->Update();
     benchmark.Tick(gt.DeltaTime());
+
+    fpsTimeAccumulator += gt.DeltaTime();
+    fpsFrameCounter++;
+    debugCPUFrameId++;
+
+    if (fpsTimeAccumulator >= 1.0f)
+    {
+        const float cpuFps = static_cast<float>(fpsFrameCounter) / fpsTimeAccumulator;
+        const float presentPerSecond = static_cast<float>(debugPresentsThisSecond) / fpsTimeAccumulator;
+        const float primaryCompletedPerSecond = static_cast<float>(debugPrimaryCompletedThisSecond) / fpsTimeAccumulator;
+        const float gpu0Ms = static_cast<float>(primeGPURenderingTime) / 1000.0f;
+        const float gpu1Ms = static_cast<float>(secondGPURenderingTime) / 1000.0f;
+
+        wchar_t title[512];
+        swprintf_s(title,
+                   L"MGPU Volume Rendering | CPU FPS: %.1f | Present/s: %.1f | PrimaryDone/s: %.1f | GPU0: %.2f ms | GPU1: %.2f ms | PWait: %.2f | SWait: %.2f | Present: %.2f",
+                   cpuFps, presentPerSecond, primaryCompletedPerSecond, gpu0Ms, gpu1Ms,
+                   debugPrimeWaitMs, debugSecondWaitMs, debugPresentMs);
+
+        if (const HWND hwnd = MainWindow->GetWindowHandle())
+        {
+            SetWindowTextW(hwnd, title);
+        }
+
+        wchar_t debugLine[256];
+        swprintf_s(debugLine,
+                   L"[MGPU Volume Diagnostics] CPUFrameId=%llu PresentedFrameId=%llu LatestCompletedPrimaryFrameId=%llu\n",
+                   debugCPUFrameId, debugPresentCount, debugLatestCompletedPrimaryFrameId);
+        OutputDebugStringW(debugLine);
+
+        fpsTimeAccumulator = 0.0f;
+        fpsFrameCounter = 0;
+        debugPresentsThisSecond = 0;
+        debugPrimaryCompletedThisSecond = 0;
+    }
 }
 
 void HybridVolumeRenderingApp::PopulateShadowMapCommands(const std::shared_ptr<GCommandList>& cmdList)
@@ -350,6 +402,8 @@ void HybridVolumeRenderingApp::PopulateVolumeMapCommands(
 
     const auto secondQueue =
         secondDevice->GetCommandQueue();
+
+    const UINT timestampHeapIndex = 2 * currentFrameResourceIndex;
     
     // release slots whose readback on GPU0 has finished
     for (auto& slot : volumeSlots)
@@ -473,6 +527,7 @@ void HybridVolumeRenderingApp::PopulateVolumeMapCommands(
         const auto secondCmdList =
             secondQueue->GetCommandList();
 
+        secondCmdList->EndQuery(timestampHeapIndex);
 
         // cross depth -> local GPU2 depth
         secondCmdList->CopyResource(secondResources.GetDepthMap(),
@@ -488,6 +543,9 @@ void HybridVolumeRenderingApp::PopulateVolumeMapCommands(
 
         // GPU2 VolumeMap -> cross adapter
         secondCmdList->CopyResource(crossResources.GetVolumeMap(i).GetSharedResource(), secondResources.GetVolumeMap());
+
+        secondCmdList->EndQuery(timestampHeapIndex + 1);
+        secondCmdList->ResolveQuery(timestampHeapIndex, 2, timestampHeapIndex * sizeof(UINT64));
         
         slot.SecondFence = secondQueue->ExecuteCommandList(secondCmdList);
         currentFrameResource->SecondVolumeFenceValue = slot.SecondFence;
@@ -742,8 +800,10 @@ void HybridVolumeRenderingApp::Draw(const GameTimer& gt)
 {
     if (isResizing) return;
 
+    const UINT timestampHeapIndex = 2 * currentFrameResourceIndex;
     auto primeRenderQueue = primeDevice->GetCommandQueue();
     auto primeCmdList = primeRenderQueue->GetCommandList();
+    primeCmdList->EndQuery(timestampHeapIndex);
 
     for (auto emitter : emitters)
     {
@@ -780,10 +840,14 @@ void HybridVolumeRenderingApp::Draw(const GameTimer& gt)
 
     primeCmdList->TransitionBarrier(MainWindow->GetCurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT);
     primeCmdList->FlushResourceBarriers();
+    primeCmdList->EndQuery(timestampHeapIndex + 1);
+    primeCmdList->ResolveQuery(timestampHeapIndex, 2, timestampHeapIndex * sizeof(UINT64));
     currentFrameResource->PrimeRenderFenceValue = primeRenderQueue->ExecuteCommandList(primeCmdList);
 
     const UINT64 primeFence =
     currentFrameResource->PrimeRenderFenceValue;
+    const UINT64 primaryFrameId = ++debugSubmittedPrimaryFrameId;
+    debugPrimaryFrames[currentFrameResourceIndex] = {primaryFrameId, primeFence, false};
 
 
     if (volumePendingDepthSlot >= 0)
@@ -799,9 +863,13 @@ void HybridVolumeRenderingApp::Draw(const GameTimer& gt)
         volumePendingReadbackSlot = -1;
     }
     
+    const auto presentStart = std::chrono::high_resolution_clock::now();
     currentFrameResourceIndex = MainWindow->Present();
+    const auto presentEnd = std::chrono::high_resolution_clock::now();
+    debugPresentMs = std::chrono::duration<float, std::milli>(presentEnd - presentStart).count();
+    debugPresentCount++;
+    debugPresentsThisSecond++;
 }
-
 
 bool HybridVolumeRenderingApp::Initialize()
 {

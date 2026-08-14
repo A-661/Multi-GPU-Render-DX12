@@ -90,6 +90,26 @@ protected:
 
     UINT64 primeGPURenderingTime = 0;
     UINT64 secondGPURenderingTime = 0;
+    float debugPrimeWaitMs = 0.0f;
+    float debugSecondWaitMs = 0.0f;
+    float debugPresentMs = 0.0f;
+    float fpsTimeAccumulator = 0.0f;
+    UINT fpsFrameCounter = 0;
+    UINT64 debugCPUFrameId = 0;
+    UINT64 debugPresentCount = 0;
+    UINT64 debugSubmittedPrimaryFrameId = 0;
+    UINT64 debugLatestCompletedPrimaryFrameId = 0;
+    UINT debugPresentsThisSecond = 0;
+    UINT debugPrimaryCompletedThisSecond = 0;
+
+    struct DebugPrimaryFrame
+    {
+        UINT64 FrameId = 0;
+        UINT64 FenceValue = 0;
+        bool Counted = true;
+    };
+
+    std::array<DebugPrimaryFrame, globalCountFrameResources> debugPrimaryFrames;
 
     D3D12_VIEWPORT fullViewport{};
     D3D12_RECT fullRect;

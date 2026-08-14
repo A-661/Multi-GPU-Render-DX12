@@ -196,12 +196,6 @@ protected:
         std::shared_ptr<ConstantUploadBuffer<ObjectConstants>>
             ObjectConstantUploadBuffer;
     };
-    
-    Microsoft::WRL::ComPtr<ID3D12Fence>
-        volumePrimeSharedFence;
-
-    Microsoft::WRL::ComPtr<ID3D12Fence>
-        volumePrimeSharedFenceOnSecondDevice;
 
     std::array<VolumeAsyncSlot, 2> volumeSlots;
 

@@ -83,8 +83,12 @@ void HybridVolumeRenderingApp::Update(const GameTimer& gt)
         secondQueue->WaitForFenceValue(currentFrameResource->SecondRenderFenceValue);
     }
 
-    const UINT64 secondReleaseFence = std::max(currentFrameResource->SecondRenderFenceValue,
-                                               currentFrameResource->SecondFogFenceValue);
+    const UINT64 secondReleaseFence =
+    std::max(
+        std::max(
+            currentFrameResource->SecondRenderFenceValue,
+            currentFrameResource->SecondFogFenceValue),
+        currentFrameResource->SecondVolumeFenceValue);
     if (secondReleaseFence != 0)
     {
         secondDevice->ReleaseSlateDescriptors(secondReleaseFence);
@@ -308,6 +312,127 @@ void HybridVolumeRenderingApp::PopulateFogMapCommands(const std::shared_ptr<GCom
     }
 }
 
+void HybridVolumeRenderingApp::PopulateVolumeMapCommands(
+    const std::shared_ptr<GCommandList>& cmdList) const
+{
+    (void)cmdList;
+    
+    if (!IsUsingSharedVolume)
+    {
+        return;
+    }
+    
+    // source depth from normal/depth prepass
+    GTexture depthSource;
+
+    if (IsUseHBAO)
+    {
+        depthSource =
+            hbaoPass
+            ->GetPrimeResources()
+            .GetDepthMap();
+    }
+    else
+    {
+        depthSource =
+            ssaoPass
+            ->GetPrimeResources()
+            .GetDepthMap();
+    }
+
+
+    const auto& primeResources =
+        volumePass->GetPrimeResources();
+
+    const auto& crossResources =
+        volumePass->GetCrossResources();
+
+
+    // ========================================================
+    // GPU0
+    //
+    // New depth:
+    // GPU0 -> cross adapter
+    //
+    // Previous GPU2 volume result:
+    // cross adapter -> GPU0
+    // ========================================================
+
+    cmdList->CopyResource(
+        crossResources
+        .GetDepthMap()
+        .GetPrimeResource(),
+
+        depthSource);
+
+
+    cmdList->CopyResource(
+        primeResources.GetVolumeMap(),
+
+        crossResources
+        .GetVolumeMap()
+        .GetPrimeResource());
+
+
+
+    // GPU1
+    const auto secondQueue =
+        secondDevice->GetCommandQueue();
+
+
+    if (
+        currentFrameResource->SecondVolumeFenceValue == 0
+        ||
+        secondQueue->IsFinish(
+            currentFrameResource->SecondVolumeFenceValue))
+    {
+        const auto& secondResources =
+            volumePass->GetSecondResources();
+
+        const auto secondCmdList =
+            secondQueue->GetCommandList();
+
+
+        // cross depth -> local GPU2 depth
+        secondCmdList->CopyResource(
+            secondResources.GetDepthMap(),
+
+            crossResources
+            .GetDepthMap()
+            .GetSharedResource());
+
+
+        // render actual volume on GPU2
+        volumePass->Render(
+            secondCmdList,
+
+            currentFrameResource
+            ->SecondVolumeObjectConstantUploadBuffer,
+
+            currentFrameResource
+            ->SecondPassConstantUploadBuffer,
+
+            currentFrameResource
+            ->SecondVolumeConstantUploadBuffer,
+
+            secondResources);
+
+
+        // GPU2 VolumeMap -> cross adapter
+        secondCmdList->CopyResource(
+            crossResources
+            .GetVolumeMap()
+            .GetSharedResource(),
+
+            secondResources.GetVolumeMap());
+
+
+        currentFrameResource->SecondVolumeFenceValue =
+            secondQueue->ExecuteCommandList(
+                secondCmdList);
+    }
+}
+
 void HybridVolumeRenderingApp::PopulateForwardPathCommands(const std::shared_ptr<GCommandList>& cmdList)
 {
     //Forward Path with SSAA
@@ -463,6 +588,8 @@ void HybridVolumeRenderingApp::Draw(const GameTimer& gt)
     PopulateNormalMapCommands(primeCmdList);
     PopulateAmbientMapCommands(primeCmdList);
     PopulateFogMapCommands(primeCmdList);
+    // Volume pass disabled: it was causing excessive resource allocation.
+    PopulateVolumeMapCommands(primeCmdList);
     PopulateShadowMapCommands(primeCmdList);
     PopulateForwardPathCommands(primeCmdList);
     PopulateInitRenderTarget(primeCmdList, MainWindow->GetCurrentBackBuffer(),
@@ -505,6 +632,7 @@ bool HybridVolumeRenderingApp::Initialize()
     CreateMaterials();
     MipMasGenerate();
 
+    InitInputLayout();
     InitRenderPaths();
     InitSRVMemoryAndMaterials();
     InitRootSignature();
@@ -755,7 +883,7 @@ void HybridVolumeRenderingApp::InitRootSignature()
     debugLogger.PushMessage(std::wstring(L"\nInit RootSignature for " + primeDevice->GetName()));
 }
 
-void HybridVolumeRenderingApp::InitPipeLineResource()
+void HybridVolumeRenderingApp::InitInputLayout()
 {
     defaultInputLayout =
     {
@@ -776,7 +904,10 @@ void HybridVolumeRenderingApp::InitPipeLineResource()
             D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
         },
     };
+}
 
+void HybridVolumeRenderingApp::InitPipeLineResource()
+{
     const D3D12_INPUT_LAYOUT_DESC desc = {defaultInputLayout.data(), defaultInputLayout.size()};
 
     defaultPrimePipelineResources = RenderModeFactory();
@@ -833,9 +964,17 @@ void HybridVolumeRenderingApp::InitRenderPaths()
     hbaoPass = std::make_shared<SharedHBAO>();
 
     fogPass = std::make_shared<SharedFog>();
+    volumePass = std::make_shared<SharedVolume>();
     
     const D3D12_INPUT_LAYOUT_DESC layoutDesc = {defaultInputLayout.data(), defaultInputLayout.size()};
 
+    volumePass->Initialize(
+        primeDevice,
+        secondDevice,
+        layoutDesc,
+        models[L"volumeBox"],
+        MainWindow->GetClientWidth(),
+        MainWindow->GetClientHeight());
 
     ssaoPass->Initialize(
         primeDevice,
@@ -1107,6 +1246,7 @@ void HybridVolumeRenderingApp::CreateGO()
     auto renderer = std::make_shared<ModelRenderer>(primeDevice, models[L"volumeBox"]);
     volume->AddComponent(renderer);
     typedRenderer[static_cast<int>(RenderMode::Volume)].push_back(renderer);
+    volumeObject = volume.get();
     gameObjects.push_back(std::move(volume));
     
     for (int i = 0; i < 11; ++i)
@@ -1453,6 +1593,9 @@ void HybridVolumeRenderingApp::UpdateMainPassCB(const GameTimer& gt)
 
     auto currentPassCB = currentFrameResource->PrimePassConstantUploadBuffer;
     currentPassCB->CopyData(0, mainPassCB);
+    
+    auto secondPassCB = currentFrameResource->SecondPassConstantUploadBuffer;
+    secondPassCB->CopyData(0, mainPassCB);
 }
 
 void HybridVolumeRenderingApp::UpdateSsaoCB(const GameTimer& gt) const
@@ -1556,6 +1699,24 @@ void HybridVolumeRenderingApp::UpdateVolumeCB(const GameTimer& gt) const
         1.0f / volumeCB.Resolution.y);
 
     currentFrameResource->PrimeVolumeConstantUploadBuffer->CopyData(0, volumeCB);
+    currentFrameResource->SecondVolumeConstantUploadBuffer->CopyData(0, volumeCB);
+    ObjectConstants objectCB = {};
+
+    objectCB.World =
+        (
+            volumeObject->GetTransform()->GetWorldMatrix()
+            * models.at(L"volumeBox")->scaleMatrix
+        ).Transpose();
+
+    objectCB.TextureTransform =
+        volumeObject
+        ->GetTransform()
+        ->TextureTransform
+        .Transpose();
+
+    currentFrameResource
+        ->SecondVolumeObjectConstantUploadBuffer
+        ->CopyData(0, objectCB);
 }
 
 bool HybridVolumeRenderingApp::InitMainWindow()
@@ -1604,6 +1765,12 @@ void HybridVolumeRenderingApp::OnResize()
         fogPass->OnResize(MainWindow->GetClientWidth(), MainWindow->GetClientHeight());
     }
     
+    if (volumePass != nullptr)
+    {
+        volumePass->OnResize(
+            MainWindow->GetClientWidth(),
+            MainWindow->GetClientHeight());
+    }    
 
     if (antiAliasingPrimePath != nullptr)
     {

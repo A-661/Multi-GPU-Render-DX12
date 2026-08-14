@@ -17,6 +17,7 @@
 #include "Services/FileQueueWriter.h"
 #include "Services/BenchmarkService.h"
 #include "SharedFog.h"
+#include "SharedVolume.h"
 
 class HybridVolumeRenderingApp final :
     public Common::D3DApp
@@ -42,6 +43,7 @@ protected:
     void PopulateNormalMapCommands(const std::shared_ptr<GCommandList>& cmdList);
     void PopulateAmbientMapCommands(const std::shared_ptr<GCommandList>& cmdList) const;
     void PopulateFogMapCommands(const std::shared_ptr<GCommandList>& cmdList) const;
+    void PopulateVolumeMapCommands(const std::shared_ptr<GCommandList>& cmdList) const;
     void PopulateForwardPathCommands(const std::shared_ptr<GCommandList>& cmdList);
     void PopulateDrawCommands(const std::shared_ptr<GCommandList>& cmdList,
                               RenderMode type) const;
@@ -56,6 +58,7 @@ protected:
     void InitDevices();
     void InitFrameResource();
     void InitRootSignature();
+    void InitInputLayout();
     void InitPipeLineResource();
     void CreateMaterials();
     void InitSRVMemoryAndMaterials();
@@ -106,6 +109,9 @@ protected:
     bool IsUseHBAO = false;
     bool IsUseFog = false;
     bool IsUsingSharedFog = true;
+    bool IsUsingSharedVolume = true;
+    
+    GameObject* volumeObject = nullptr;
     
     UINT pathMapShow = 0;
     //off, shadowMap, ssaoMap
@@ -117,6 +123,7 @@ protected:
     std::shared_ptr<SharedSSAO> ssaoPass;
     std::shared_ptr<SharedHBAO> hbaoPass;
     std::shared_ptr<SharedFog> fogPass;
+    std::shared_ptr<SharedVolume> volumePass;
     std::shared_ptr<SSAA> antiAliasingPrimePath;
 
     custom_vector<std::shared_ptr<GameObject>> gameObjects = MemoryAllocator::CreateVector<std::shared_ptr<

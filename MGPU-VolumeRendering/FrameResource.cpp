@@ -29,6 +29,15 @@ FrameResource::FrameResource(std::shared_ptr<GDevice> primeDevices, std::shared_
     PrimeVolumeConstantUploadBuffer = (std::make_shared<ConstantUploadBuffer<VolumeConstants>>(
         primeDevices, 1, primeDevices->GetName() + L" Volume Path Data Buffer"));
 
+    SecondPassConstantUploadBuffer = std::make_shared<ConstantUploadBuffer<PassConstants>>(
+        secondDevice, passCount, secondDevice->GetName() + L" Volume Path Data Buffer");
+    
+    SecondVolumeConstantUploadBuffer = std::make_shared<ConstantUploadBuffer<VolumeConstants>>(
+            secondDevice, 1, secondDevice->GetName() + L" Volume Path Data Buffer");
+    
+    SecondVolumeObjectConstantUploadBuffer = std::make_shared<ConstantUploadBuffer<ObjectConstants>>(
+            secondDevice, 1, secondDevice->GetName() + L" Volume Object Data Buffer");
+    
     MaterialBuffer = std::make_shared<StructuredUploadBuffer<MaterialConstants>>(
         primeDevices, materialCount, primeDevices->GetName() + L" Material Data Buffer ");
 

@@ -33,6 +33,10 @@ struct FrameResource
     std::shared_ptr<ConstantUploadBuffer<FogConstants>> SecondFogConstantUploadBuffer;
     
     std::shared_ptr<ConstantUploadBuffer<VolumeConstants>> PrimeVolumeConstantUploadBuffer;
+    std::shared_ptr<ConstantUploadBuffer<VolumeConstants>> SecondVolumeConstantUploadBuffer;
+    
+    std::shared_ptr<ConstantUploadBuffer<PassConstants>> SecondPassConstantUploadBuffer;
+    std::shared_ptr<ConstantUploadBuffer<ObjectConstants>> SecondVolumeObjectConstantUploadBuffer;
 
     std::shared_ptr<StructuredUploadBuffer<MaterialConstants>> MaterialBuffer;
 
@@ -40,4 +44,5 @@ struct FrameResource
     UINT64 PrimeRenderFenceValue = 0;
     UINT64 SecondRenderFenceValue = 0;
     UINT64 SecondFogFenceValue = 0;
+    UINT64 SecondVolumeFenceValue = 0;
 };

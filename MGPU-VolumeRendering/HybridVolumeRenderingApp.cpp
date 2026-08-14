@@ -1517,7 +1517,9 @@ void HybridVolumeRenderingApp::CreateGO()
     CameraSaveMatrix = camera->GetTransform()->GetLocalMatrix();
 
 #if defined(DEBUG) || defined(_DEBUG)
-    camera->AddComponent(std::make_shared<CameraController>());
+    auto cameraController = std::make_shared<CameraController>();
+    cameraController->SetMoveSpeedMultiplier(15.0f);
+    camera->AddComponent(cameraController);
 #else
     rotater->AddComponent(std::make_shared<Rotater>(10));
 #endif

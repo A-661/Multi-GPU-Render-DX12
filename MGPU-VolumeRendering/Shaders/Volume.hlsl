@@ -87,7 +87,7 @@ float FBM(float3 p)
     float amplitude = 0.5f;
 
     [unroll]
-    for (int octave = 0; octave < 5; ++octave)
+    for (int octave = 0; octave < 6; ++octave)
     {
         value += Noise3D(p) * amplitude;
         p = p * 2.02f + float3(17.1f, 11.7f, 7.3f);

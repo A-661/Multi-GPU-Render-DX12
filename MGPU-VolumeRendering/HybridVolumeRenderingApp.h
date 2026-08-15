@@ -88,8 +88,10 @@ protected:
     std::shared_ptr<GDevice> primeDevice;
     std::shared_ptr<GDevice> secondDevice;
 
-    UINT64 primeGPURenderingTime = 0;
-    UINT64 secondGPURenderingTime = 0;
+    float primeGPUFrameTimeMs = 0.0f;
+    float secondGPUFrameTimeMs = 0.0f;
+    float minPrimeGPUFrameTimeMs = 0.0f;
+    float maxPrimeGPUFrameTimeMs = 0.0f;
     float debugPrimeWaitMs = 0.0f;
     float debugSecondWaitMs = 0.0f;
     float debugPresentMs = 0.0f;
@@ -109,7 +111,14 @@ protected:
         bool Counted = true;
     };
 
+    struct DebugSecondFrame
+    {
+        UINT64 FenceValue = 0;
+        bool Counted = true;
+    };
+
     std::array<DebugPrimaryFrame, globalCountFrameResources> debugPrimaryFrames;
+    std::array<DebugSecondFrame, globalCountFrameResources> debugSecondFrames;
 
     D3D12_VIEWPORT fullViewport{};
     D3D12_RECT fullRect;

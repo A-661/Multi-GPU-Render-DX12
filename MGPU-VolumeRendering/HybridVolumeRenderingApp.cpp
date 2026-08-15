@@ -57,11 +57,9 @@ void HybridVolumeRenderingApp::ResetCamera() const
 
 void HybridVolumeRenderingApp::Update(const GameTimer& gt)
 {
-    const UINT olderIndex = currentFrameResourceIndex - 1 > globalCountFrameResources
-                                ? 0
-                                : static_cast<UINT>(currentFrameResourceIndex);
-    primeGPURenderingTime = primeDevice->GetCommandQueue()->GetTimestamp(olderIndex);
-    secondGPURenderingTime = secondDevice->GetCommandQueue()->GetTimestamp(olderIndex);
+    const UINT olderIndex =
+        (currentFrameResourceIndex + globalCountFrameResources - 1)
+        % globalCountFrameResources;
 
     const auto primeQueue = primeDevice->GetCommandQueue(GQueueType::Graphics);
     const auto secondQueue = secondDevice->GetCommandQueue(GQueueType::Graphics);
@@ -97,13 +95,38 @@ void HybridVolumeRenderingApp::Update(const GameTimer& gt)
         secondDevice->ReleaseSlateDescriptors(completedSecondFence);
     }
 
-    for (auto& debugFrame : debugPrimaryFrames)
+    for (UINT offset = 0; offset < globalCountFrameResources; ++offset)
     {
+        const UINT frameIndex =
+            (olderIndex + globalCountFrameResources - offset)
+            % globalCountFrameResources;
+        auto& debugFrame = debugPrimaryFrames[frameIndex];
+
         if (debugFrame.FenceValue != 0 && !debugFrame.Counted && primeQueue->IsFinish(debugFrame.FenceValue))
         {
+            primeGPUFrameTimeMs = static_cast<float>(primeQueue->GetTimestamp(frameIndex)) / 1000.0f;
+            minPrimeGPUFrameTimeMs = minPrimeGPUFrameTimeMs == 0.0f
+                                         ? primeGPUFrameTimeMs
+                                         : std::min(minPrimeGPUFrameTimeMs, primeGPUFrameTimeMs);
+            maxPrimeGPUFrameTimeMs = std::max(maxPrimeGPUFrameTimeMs, primeGPUFrameTimeMs);
+
             debugFrame.Counted = true;
             debugPrimaryCompletedThisSecond++;
             debugLatestCompletedPrimaryFrameId = std::max(debugLatestCompletedPrimaryFrameId, debugFrame.FrameId);
+        }
+    }
+
+    for (UINT offset = 0; offset < globalCountFrameResources; ++offset)
+    {
+        const UINT frameIndex =
+            (olderIndex + globalCountFrameResources - offset)
+            % globalCountFrameResources;
+        auto& debugFrame = debugSecondFrames[frameIndex];
+
+        if (debugFrame.FenceValue != 0 && !debugFrame.Counted && secondQueue->IsFinish(debugFrame.FenceValue))
+        {
+            secondGPUFrameTimeMs = static_cast<float>(secondQueue->GetTimestamp(frameIndex)) / 1000.0f;
+            debugFrame.Counted = true;
         }
     }
 
@@ -141,13 +164,11 @@ void HybridVolumeRenderingApp::Update(const GameTimer& gt)
         const float cpuFps = static_cast<float>(fpsFrameCounter) / fpsTimeAccumulator;
         const float presentPerSecond = static_cast<float>(debugPresentsThisSecond) / fpsTimeAccumulator;
         const float primaryCompletedPerSecond = static_cast<float>(debugPrimaryCompletedThisSecond) / fpsTimeAccumulator;
-        const float gpu0Ms = static_cast<float>(primeGPURenderingTime) / 1000.0f;
-        const float gpu1Ms = static_cast<float>(secondGPURenderingTime) / 1000.0f;
 
         wchar_t title[512];
         swprintf_s(title,
-                   L"MGPU Volume Rendering | CPU FPS: %.1f | Present/s: %.1f | PrimaryDone/s: %.1f | GPU0: %.2f ms | GPU1: %.2f ms | PWait: %.2f | SWait: %.2f | Present: %.2f",
-                   cpuFps, presentPerSecond, primaryCompletedPerSecond, gpu0Ms, gpu1Ms,
+                   L"MGPU Volume Rendering | CPU: %.1f FPS | Present/s: %.1f | PrimaryDone/s: %.1f | GPU0: %.2f ms | GPU1: %.2f ms | PWait: %.2f | SWait: %.2f | Present: %.2f",
+                   cpuFps, presentPerSecond, primaryCompletedPerSecond, primeGPUFrameTimeMs, secondGPUFrameTimeMs,
                    debugPrimeWaitMs, debugSecondWaitMs, debugPresentMs);
 
         if (const HWND hwnd = MainWindow->GetWindowHandle())
@@ -549,6 +570,7 @@ void HybridVolumeRenderingApp::PopulateVolumeMapCommands(
         
         slot.SecondFence = secondQueue->ExecuteCommandList(secondCmdList);
         currentFrameResource->SecondVolumeFenceValue = slot.SecondFence;
+        debugSecondFrames[currentFrameResourceIndex] = {slot.SecondFence, false};
         slot.State = VolumeSlotState::GPU2Working;
         
         break;
@@ -896,42 +918,103 @@ bool HybridVolumeRenderingApp::Initialize()
     Flush();
 
     int TestTime = 10;
+    int WarmupTime = 3;
+
 #if !defined(DEBUG) && !defined(_DEBUG)
     TestTime = 120;
+    WarmupTime = 10;
 #endif
 
+    const auto resetVolumeSlots = [this]()
+    {
+        for (auto& slot : volumeSlots)
+        {
+            slot.State = VolumeSlotState::Free;
+            slot.PrimeFence = 0;
+            slot.SecondFence = 0;
+            slot.FrameId = 0;
+        }
 
-    const auto prepareBenchmarkState = [this](FileQueueWriter& logs, const bool useSharedSSAO, const bool useHBAO,
-                                              const bool useSharedFog)
+        volumeFrameId = 1;
+        latestPresentedVolumeFrameId = 0;
+        volumeWriteSlot = 0;
+        volumePendingDepthSlot = -1;
+        volumePendingReadbackSlot = -1;
+    };
+
+    const auto prepareVolumeBenchmarkState = [this, resetVolumeSlots](bool useSharedVolume)
     {
         ResetCamera();
 
-        const bool needFlush = IsUsingSharedSSAO != useSharedSSAO
-            || IsUseHBAO != useHBAO
-            || IsUsingSharedFog != useSharedFog;
+        const bool needFlush =
+            IsUsingSharedSSAO ||
+            IsUseHBAO ||
+            IsUseFog ||
+            IsUsingSharedVolume != useSharedVolume;
 
-        IsUsingSharedSSAO = useSharedSSAO;
-        IsUseHBAO = useHBAO;
-        IsUsingSharedFog = useSharedFog;
-        IsUseFog = true;
+        IsUsingSharedSSAO = false;
+        IsUseHBAO = false;
+        IsUseFog = false;
+        IsUsingSharedFog = false;
+        IsUsingSharedVolume = useSharedVolume;
 
         if (needFlush)
         {
             Flush();
+            resetVolumeSlots();
+        }
+    };
+
+    const auto resetMeasuredGPUStats = [this]()
+    {
+        primeGPUFrameTimeMs = 0.0f;
+        secondGPUFrameTimeMs = 0.0f;
+        minPrimeGPUFrameTimeMs = 0.0f;
+        maxPrimeGPUFrameTimeMs = 0.0f;
+
+        for (auto& frame : debugPrimaryFrames)
+        {
+            frame.Counted = true;
         }
 
-        logs.PushMessage(L"FPS;MSPF;MinFPS;MinMSPF;MaxFPS;MaxMSPF");
+        for (auto& frame : debugSecondFrames)
+        {
+            frame.Counted = true;
+        }
     };
 
-    const auto updateBenchmarkState = [this](FileQueueWriter& logs, const TimeStats& ts, const float progress,
+    const auto prepareMeasuredState = [prepareVolumeBenchmarkState, resetMeasuredGPUStats](FileQueueWriter& logs, bool useSharedVolume)
+    {
+        prepareVolumeBenchmarkState(useSharedVolume);
+        resetMeasuredGPUStats();
+        logs.PushMessage(L"CPU_FPS;CPU_MSPF;MinCPU_FPS;MinCPU_MSPF;MaxCPU_FPS;MaxCPU_MSPF;PrimeGPUms;SecondGPUms;MinPrimeGPUms;MaxPrimeGPUms");
+    };
+
+    const auto updateBenchmarkState = [this](FileQueueWriter& logs, const TimeStats& ts, float progress,
                                              const wchar_t* stateName)
     {
-        Benchmark::PrintStatsCSV(ts, logs);
-        MainWindow->SetWindowTitle(std::wstring(stateName) + L" Progress " + std::format(L"{:.2f}", progress * 100)
-            + L"% FPS:" + std::to_wstring(ts.fps));
+        logs.PushMessage(std::format(L"{:.2f};{:.2f};{:.2f};{:.2f};{:.2f};{:.2f};{:.2f};{:.2f};{:.2f};{:.2f}",
+                                     ts.fps, ts.mspf, ts.minFps, ts.minMspf, ts.maxFps, ts.maxMspf,
+                                     primeGPUFrameTimeMs, secondGPUFrameTimeMs,
+                                     minPrimeGPUFrameTimeMs, maxPrimeGPUFrameTimeMs));
+
+        MainWindow->SetWindowTitle(
+            std::wstring(stateName) +
+            L" Progress " + std::format(L"{:.2f}", progress * 100.0f) +
+            L"% CPU FPS:" + std::to_wstring(ts.fps) +
+            L" GPU0 ms:" + std::format(L"{:.2f}", primeGPUFrameTimeMs));
     };
 
-    const auto finishBenchmarkState = [this](FileQueueWriter& logs, const bool stopAfterState = false)
+    const auto updateWarmupState = [this](FileQueueWriter&, const TimeStats& ts, float progress,
+                                          const wchar_t* stateName)
+    {
+        MainWindow->SetWindowTitle(
+            std::wstring(stateName) +
+            L" Progress " + std::format(L"{:.2f}", progress * 100.0f) +
+            L"% FPS:" + std::to_wstring(ts.fps));
+    };
+
+    const auto finishBenchmarkState = [this](FileQueueWriter& logs, bool stopAfterState = false)
     {
         logs.WriteAllLog();
         Flush();
@@ -942,92 +1025,90 @@ bool HybridVolumeRenderingApp::Initialize()
         }
     };
 
-    auto& NativeSSAOState = benchmark.AddState<WaitState>(
-        TestTime, FileQueueWriter(Benchmark::GetLogFile(L"Native SSAO ", *primeDevice, *secondDevice)));
-    NativeSSAOState.OnEnter = [prepareBenchmarkState](FileQueueWriter& logs)
+
+    // native Volume warmup
+    auto& NativeVolumeWarmupState = benchmark.AddState<WaitState>(
+        WarmupTime,
+        FileQueueWriter(Benchmark::GetLogFile(L"Warmup Native Volume ", *primeDevice, *secondDevice)));
+
+    NativeVolumeWarmupState.OnEnter = [prepareVolumeBenchmarkState](FileQueueWriter&)
     {
-        prepareBenchmarkState(logs, false, false, true);
+        prepareVolumeBenchmarkState(false);
     };
-    NativeSSAOState.OnStatChanged = [updateBenchmarkState](FileQueueWriter& logs, const TimeStats& ts, const float progress)
+
+    NativeVolumeWarmupState.OnStatChanged =
+        [updateWarmupState](FileQueueWriter& logs, const TimeStats& ts, float progress)
     {
-        updateBenchmarkState(logs, ts, progress, L"Native SSAO");
+        updateWarmupState(logs, ts, progress, L"Warmup Native Volume");
     };
-    NativeSSAOState.OnExit = [finishBenchmarkState](FileQueueWriter& logs)
+
+    NativeVolumeWarmupState.OnExit = [](FileQueueWriter&)
+    {
+    };
+
+
+    // native Volume
+    auto& NativeVolumeState = benchmark.AddState<WaitState>(
+        TestTime,
+        FileQueueWriter(Benchmark::GetLogFile(L"Native Volume ", *primeDevice, *secondDevice)));
+
+    NativeVolumeState.OnEnter = [prepareMeasuredState](FileQueueWriter& logs)
+    {
+        prepareMeasuredState(logs, false);
+    };
+
+    NativeVolumeState.OnStatChanged =
+        [updateBenchmarkState](FileQueueWriter& logs, const TimeStats& ts, float progress)
+    {
+        updateBenchmarkState(logs, ts, progress, L"Native Volume");
+    };
+
+    NativeVolumeState.OnExit = [finishBenchmarkState](FileQueueWriter& logs)
     {
         finishBenchmarkState(logs);
     };
 
-    auto& HybridSSAOState = benchmark.AddState<WaitState>(
-        TestTime, FileQueueWriter(Benchmark::GetLogFile(L"Hybrid SSAO ", *primeDevice, *secondDevice)));
-    HybridSSAOState.OnEnter = [prepareBenchmarkState](FileQueueWriter& logs)
+
+    // hybrid Volume warmup
+
+    auto& HybridVolumeWarmupState = benchmark.AddState<WaitState>(
+        WarmupTime,
+        FileQueueWriter(Benchmark::GetLogFile(L"Warmup Hybrid Volume ", *primeDevice, *secondDevice)));
+
+    HybridVolumeWarmupState.OnEnter = [prepareVolumeBenchmarkState](FileQueueWriter&)
     {
-        prepareBenchmarkState(logs, true, false, true);
-    };
-    HybridSSAOState.OnStatChanged = [updateBenchmarkState](FileQueueWriter& logs, const TimeStats& ts, const float progress)
-    {
-        updateBenchmarkState(logs, ts, progress, L"Hybrid SSAO");
-    };
-    HybridSSAOState.OnExit = [finishBenchmarkState](FileQueueWriter& logs)
-    {
-        finishBenchmarkState(logs);
+        prepareVolumeBenchmarkState(true);
     };
 
-    auto& NativeHBAOState = benchmark.AddState<WaitState>(
-        TestTime, FileQueueWriter(Benchmark::GetLogFile(L"Native HBAO ", *primeDevice, *secondDevice)));
-    NativeHBAOState.OnEnter = [prepareBenchmarkState](FileQueueWriter& logs)
+    HybridVolumeWarmupState.OnStatChanged =
+        [updateWarmupState](FileQueueWriter& logs, const TimeStats& ts, float progress)
     {
-        prepareBenchmarkState(logs, false, true, true);
-    };
-    NativeHBAOState.OnStatChanged = [updateBenchmarkState](FileQueueWriter& logs, const TimeStats& ts, const float progress)
-    {
-        updateBenchmarkState(logs, ts, progress, L"Native HBAO");
-    };
-    NativeHBAOState.OnExit = [finishBenchmarkState](FileQueueWriter& logs)
-    {
-        finishBenchmarkState(logs);
+        updateWarmupState(logs, ts, progress, L"Warmup Hybrid Volume");
     };
 
-    auto& HybridHBAOState = benchmark.AddState<WaitState>(
-        TestTime, FileQueueWriter(Benchmark::GetLogFile(L"Hybrid HBAO ", *primeDevice, *secondDevice)));
-    HybridHBAOState.OnEnter = [prepareBenchmarkState](FileQueueWriter& logs)
+    HybridVolumeWarmupState.OnExit = [](FileQueueWriter&)
     {
-        prepareBenchmarkState(logs, true, true, true);
-    };
-    HybridHBAOState.OnStatChanged = [updateBenchmarkState](FileQueueWriter& logs, const TimeStats& ts, const float progress)
-    {
-        updateBenchmarkState(logs, ts, progress, L"Hybrid HBAO");
-    };
-    HybridHBAOState.OnExit = [finishBenchmarkState](FileQueueWriter& logs)
-    {
-        finishBenchmarkState(logs);
     };
 
-    auto& NativeFogState = benchmark.AddState<WaitState>(
-        TestTime, FileQueueWriter(Benchmark::GetLogFile(L"Native Fog ", *primeDevice, *secondDevice)));
-    NativeFogState.OnEnter = [prepareBenchmarkState](FileQueueWriter& logs)
+
+    // hybrid Volume
+
+    auto& HybridVolumeState = benchmark.AddState<WaitState>(
+        TestTime,
+        FileQueueWriter(Benchmark::GetLogFile(L"Hybrid Volume ", *primeDevice, *secondDevice)));
+
+    HybridVolumeState.OnEnter = [prepareMeasuredState](FileQueueWriter& logs)
     {
-        prepareBenchmarkState(logs, false, false, false);
-    };
-    NativeFogState.OnStatChanged = [updateBenchmarkState](FileQueueWriter& logs, const TimeStats& ts, const float progress)
-    {
-        updateBenchmarkState(logs, ts, progress, L"Native Fog");
-    };
-    NativeFogState.OnExit = [finishBenchmarkState](FileQueueWriter& logs)
-    {
-        finishBenchmarkState(logs);
+        prepareMeasuredState(logs, true);
     };
 
-    auto& HybridFogState = benchmark.AddState<WaitState>(
-        TestTime, FileQueueWriter(Benchmark::GetLogFile(L"Hybrid Fog ", *primeDevice, *secondDevice)));
-    HybridFogState.OnEnter = [prepareBenchmarkState](FileQueueWriter& logs)
+    HybridVolumeState.OnStatChanged =
+        [updateBenchmarkState](FileQueueWriter& logs, const TimeStats& ts, float progress)
     {
-        prepareBenchmarkState(logs, false, false, true);
+        updateBenchmarkState(logs, ts, progress, L"Hybrid Volume");
     };
-    HybridFogState.OnStatChanged = [updateBenchmarkState](FileQueueWriter& logs, const TimeStats& ts, const float progress)
-    {
-        updateBenchmarkState(logs, ts, progress, L"Hybrid Fog");
-    };
-    HybridFogState.OnExit = [finishBenchmarkState](FileQueueWriter& logs)
+
+    HybridVolumeState.OnExit = [finishBenchmarkState](FileQueueWriter& logs)
     {
         finishBenchmarkState(logs, true);
     };
@@ -1951,10 +2032,10 @@ void HybridVolumeRenderingApp::UpdateVolumeCB(const GameTimer& gt)
     VolumeConstants volumeCB = {};
     volumeCB.BoxMinW = Vector3(-50.0f, 25.0f, -50.0f);
     volumeCB.BoxMaxW = Vector3(50.0f, 75.0f, 50.0f);
-    volumeCB.Density = 0.02f;
+    volumeCB.Density = 0.045f;
     volumeCB.StepSize = 1.0f;
     volumeCB.Color = Vector3(0.72f, 0.78f, 0.86f);
-    volumeCB.MaxOpacity = 0.95f;
+    volumeCB.MaxOpacity = 0.99f;
     volumeCB.Resolution = Vector2(
         static_cast<float>(MainWindow->GetClientWidth()),
         static_cast<float>(MainWindow->GetClientHeight()));

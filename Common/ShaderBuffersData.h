@@ -102,6 +102,21 @@ struct ObjectConstants
     UINT gObjPad2;
 };
 
+struct alignas(sizeof(Vector4)) VolumeConstants
+{
+    Vector3 BoxMinW;
+    float Density = 0.02f;
+
+    Vector3 BoxMaxW;
+    float StepSize = 1.0f;
+
+    Vector3 Color = {1.0f, 1.0f, 1.0f};
+    float MaxOpacity = 0.95f;
+
+    Vector2 Resolution;
+    Vector2 InvResolution;
+};
+
 struct SsaoConstants
 {
     Matrix Proj;
@@ -184,6 +199,8 @@ public:
         ShadowMap,
         AmbientMap,
         TexturesMap,
+        VolumeData,
+        VolumeDepthMap,
         Count
     };
 };

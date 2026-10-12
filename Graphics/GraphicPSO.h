@@ -21,6 +21,7 @@ namespace PEPEngine::Graphics
         ShadowMapOpaque,
         ShadowMapOpaqueDrop,
         Transparent,
+        Volume,
         DrawNormalsOpaque,
         DrawNormalsOpaqueDrop,
         Ssao,

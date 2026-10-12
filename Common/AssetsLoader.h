@@ -66,6 +66,8 @@ public:
 
     std::shared_ptr<GModel>& GenerateQuad(const std::shared_ptr<GCommandList>& cmdList, float x = 1.0f, float y = 1.0f,
                                           float w = 1.0f, float h = 1.0f, float depth = 0.0);
+    
+    std::shared_ptr<GModel>& GenerateBox(const std::shared_ptr<GCommandList>& cmdList, float width = 1.0f, float height = 1.0f, float depth = 1.0f);
 
     std::shared_ptr<GModel>& CreateModelFromFile(const std::shared_ptr<GCommandList>& cmdList, const std::string& filePath);
 

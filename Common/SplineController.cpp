@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "SplineController.h"
 #include "d3dApp.h"
 
